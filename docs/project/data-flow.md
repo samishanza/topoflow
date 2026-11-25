@@ -57,5 +57,6 @@ per-minute 429s wait and retry, record mode resumes); see the rerun in the plan'
 cross-check that can run passes: surface CH4 regional mean 2,044 ppb vs NOAA 1,927 ppb (1.061x). 7,404 critical points
 over 28 time steps (3,676 saddles, 1,466 attracting foci, 1,314 repelling foci, 519 attracting nodes, 274 repelling
 nodes, 155 centres). Every kind sits above the global mean CH4 (attracting nodes +157 ppb, repelling nodes +145 ppb,
-saddles +101 ppb), which mostly reflects that the points are over land rather than any convergence effect. That is
-why D12 must define a null model before this is read as a result.
+saddles +101 ppb). Because every kind sits above the mean, this does not single out convergence; one untested
+explanation is that critical points fall more often over land, where CH4 runs higher. D12 must define a null model
+before any of this is read as a result.
