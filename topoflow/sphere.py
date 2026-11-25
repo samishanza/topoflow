@@ -108,15 +108,16 @@ def cap_indices(u, v, lats, lons_c) -> tuple[int, int]:
     return out[0], out[1]
 
 
-def stagnation_points(u, v, lats, lons_c) -> list[dict]:
+def stagnation_points(u, v, lats, lons_c, radius_m: float | None = None) -> list[dict]:
     """Sub-grid roots on the two linear triangles of every cell, from the same tangent-plane corner vectors as the
     winding count, so a cell's located points always carry its winding index. Classified by the Jacobian in metres."""
     from .units import EARTH_RADIUS_M
 
+    radius = radius_m or EARTH_RADIUS_M
     C, clat, clon = _corner_components(u, v, lats, lons_c)
     dlat = np.diff(lats)[:, None] * np.ones((1, len(clon)))
     dlon = np.diff(lons_c)[None, :] * np.ones((len(clat), 1))
-    ky = EARTH_RADIUS_M * np.pi / 180
+    ky = radius * np.pi / 180
     kx = ky * np.cos(np.deg2rad(clat))[:, None]
     hx, hy = dlon * kx / 2, dlat * ky / 2
     # Corner positions in metres from the cell centre: SW, SE, NE, NW.
@@ -147,12 +148,12 @@ def stagnation_points(u, v, lats, lons_c) -> list[dict]:
     return out
 
 
-def analyse(u, v, lats, lons) -> dict:
+def analyse(u, v, lats, lons, radius_m: float | None = None) -> dict:
     """One time step: located points, cell index field, cap indices, and both closure sums."""
     u2, v2, la, lo = prepare(u, v, lats, lons)
     idx, err = cell_indices(u2, v2, la, lo)
     north, south = cap_indices(u2, v2, la, lo)
-    pts = stagnation_points(u2, v2, la, lo)
+    pts = stagnation_points(u2, v2, la, lo, radius_m)
     # Points the triangle solver finds in the cells nearest the poles are inside the caps' rings already; the caps
     # are counted from the ring winding, so nothing is double counted here.
     winding_sum = int(idx.sum()) + north + south

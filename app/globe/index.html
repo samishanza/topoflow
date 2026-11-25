@@ -52,15 +52,16 @@
 
 <div id="left" class="panel">
   <h1>TopoFlow</h1>
-  <div class="sub">Atmospheric stagnation points on the whole Earth: ERA5 10 m wind, classified by the Jacobian and checked against the Poincaré–Hopf theorem every 6 hours.</div>
+  <div class="sub" id="blurb">Atmospheric stagnation points over the whole planet, classified by the Jacobian and checked against the Poincaré–Hopf theorem at every step.</div>
 
   <h2>Planet</h2>
-  <select id="planet"><option value="earth">Earth (ERA5)</option><option value="mars" disabled>Mars (OpenMARS, coming)</option></select>
+  <select id="planet"><option value="earth">Earth · ERA5 10 m wind</option><option value="mars">Mars · OpenMARS near-surface wind</option></select>
 
   <h2>Layers</h2>
   <label><input type="checkbox" id="lyrWind" checked> Wind particles (10 m)</label>
   <label><input type="checkbox" id="lyrPts" checked> Stagnation points (this step)</label>
   <label><input type="checkbox" id="lyrHeat" checked> Persistence (all steps)</label>
+  <label><input type="checkbox" id="lyrFc" checked> TopoNet 24 h forecast (test steps)</label>
   <div style="display:flex; gap:8px; margin-top:6px">
     <select id="heatKind">
       <option value="all">All kinds</option><option value="saddle">Saddles</option>
@@ -68,7 +69,7 @@
       <option value="attracting">Attracting (convergent)</option>
       <option value="attracting_node">Attracting nodes</option><option value="attracting_focus">Attracting foci</option>
     </select>
-    <select id="heatSeason"><option value="all">All seasons</option><option>DJF</option><option>MAM</option><option>JJA</option><option>SON</option></select>
+    <select id="heatSeason"><option value="all">All seasons</option></select>
   </div>
 
   <h2>Stagnation kinds</h2>
@@ -91,6 +92,8 @@
   <div id="closureStats"></div>
   <div id="closureChart" class="chart"></div>
   <div class="note">On a sphere the indices of all stagnation points must sum to χ(S²) = 2. Every step satisfies <i>winding sum = 2 + edge error</i>: each departure from 2 is a grid edge where the wind turns too sharply for the grid to read.</div>
+  <h2>Topological deep learning</h2>
+  <div id="model" class="sub"></div>
   <h2>Selected location</h2>
   <div id="cell" class="sub">Click anywhere on the globe.</div>
   <div id="cellChart" class="chart" style="display:none"></div>
@@ -140,8 +143,13 @@ const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(5, 3, 5)
 const loader = new THREE.TextureLoader();
 loader.load(IMG + 'night-sky.png', t => { t.colorSpace = THREE.SRGBColorSpace; scene.background = t; });
 const earthMat = new THREE.MeshPhongMaterial({ shininess: 8 });
-loader.load(IMG + 'earth-blue-marble.jpg', t => { t.colorSpace = THREE.SRGBColorSpace; earthMat.map = t; earthMat.needsUpdate = true; });
-loader.load(IMG + 'earth-topology.png', t => { earthMat.bumpMap = t; earthMat.bumpScale = 0.015; earthMat.needsUpdate = true; });
+let earthBump = null;
+loader.load(IMG + 'earth-topology.png', t => { earthBump = t; });
+function setSurface(planet) {
+  loader.load(TEXTURES[planet], t => { t.colorSpace = THREE.SRGBColorSpace; earthMat.map = t;
+    earthMat.bumpMap = planet === 'earth' ? earthBump : null; earthMat.bumpScale = 0.015; earthMat.needsUpdate = true; });
+  glow.material.uniforms.tint.value.set(planet === 'earth' ? 0x5999ff : 0xd9874c);
+}
 const earth = new THREE.Mesh(new THREE.SphereGeometry(1, 128, 128), earthMat);
 scene.add(earth);
 
@@ -149,7 +157,8 @@ scene.add(earth);
 const glow = new THREE.Mesh(new THREE.SphereGeometry(1.12, 64, 64), new THREE.ShaderMaterial({
   transparent: true, side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending,
   vertexShader: `varying vec3 vN; void main(){ vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-  fragmentShader: `varying vec3 vN; void main(){ float i = pow(0.68 - dot(vN, vec3(0,0,1.0)), 3.0); gl_FragColor = vec4(0.35,0.6,1.0,1.0) * i; }`
+  uniforms: { tint: { value: new THREE.Color(0.35, 0.6, 1.0) } },
+  fragmentShader: `uniform vec3 tint; varying vec3 vN; void main(){ float i = pow(0.68 - dot(vN, vec3(0,0,1.0)), 3.0); gl_FragColor = vec4(tint,1.0) * i; }`
 }));
 scene.add(glow);
 
@@ -188,9 +197,26 @@ for (const k of kinds) {
   pts.userData.kind = k; pointLayers[k] = pts; scene.add(pts);
 }
 
+// TopoNet forecast: vertices coloured by probability (single warm hue, magnitude in opacity via vertex colour).
+const fcLayer = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({
+  size: 0.022, vertexColors: true, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+scene.add(fcLayer);
+function drawForecast() {
+  const f = FRAME && FRAME.forecast;
+  fcLayer.visible = !!(f && $('lyrFc').checked);
+  if (!f) return;
+  const pos = new Float32Array(f.length * 3), col = new Float32Array(f.length * 3);
+  f.forEach(([la, lo, p], n) => { const v = toXYZ(la, lo, 1.008); pos.set([v.x, v.y, v.z], n * 3);
+    const a = Math.min(1, (p - 0.15) / 0.6); col.set([0.98 * a, 0.45 * a, 0.85 * a], n * 3); });
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3)); fcLayer.geometry.dispose(); fcLayer.geometry = g;
+}
+
 // ------------------------------------------------------------------ state
 let META, FRAME = null, playing = false, timer = null, particles = [];
-const state = { i: 0 };
+const state = { i: 0, planet: new URLSearchParams(location.search).get('planet') || 'earth' };
+const api = (path, q = '') => `/api/${path}?planet=${state.planet}${q ? '&' + q : ''}`;
+const TEXTURES = { earth: IMG + 'earth-blue-marble.jpg', mars: '/static/textures/mars_2k.jpg' };
 
 async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(url + ' ' + r.status); return r.json(); }
 
@@ -235,7 +261,7 @@ async function drawHeat() {
   const { ctx, canvas } = heat, W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
   if (!$('lyrHeat').checked) { heat.tex.needsUpdate = true; return; }
-  const d = await getJSON(`/api/persistence?kind=${$('heatKind').value}&season=${$('heatSeason').value}`);
+  const d = await getJSON(api('persistence', `kind=${$('heatKind').value}&season=${$('heatSeason').value}`));
   const nlat = d.lat.length, nlon = d.lon.length, cw = W / nlon, ch = H / nlat;
   const vmax = d.max || 1;
   for (let i = 0; i < nlat; i++) for (let j = 0; j < nlon; j++) {
@@ -257,9 +283,9 @@ const fmtLon = v => `${Math.abs(v).toFixed(1)}°${v >= 0 ? 'E' : 'W'}`;
 
 // ------------------------------------------------------------------ frame
 async function loadFrame(i) {
-  FRAME = await getJSON(`/api/frame?i=${i}`);
+  FRAME = await getJSON(api('frame', `i=${i}`));
   state.i = i; $('slider').value = i;
-  $('time').textContent = new Date(FRAME.time).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+  $('time').textContent = FRAME.label;
   const show = new Set([...document.querySelectorAll('.kind:checked')].map(e => e.value));
   const counts = {};
   for (const k of kinds) {
@@ -271,6 +297,7 @@ async function loadFrame(i) {
     pointLayers[k].geometry.dispose(); pointLayers[k].geometry = g; pointLayers[k].userData.rows = sel;
     pointLayers[k].visible = $('lyrPts').checked && show.has(k);
   }
+  drawForecast();
   const c = FRAME.closure;
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   $('stepStats').innerHTML = [
@@ -284,7 +311,7 @@ async function loadFrame(i) {
 
 // ------------------------------------------------------------------ closure panel
 async function drawClosure() {
-  const d = await getJSON('/api/closure');
+  const d = await getJSON(api('closure'));
   const m = META.closure;
   $('closureStats').innerHTML = [
     ['Steps analysed', m.steps.toLocaleString()],
@@ -294,12 +321,13 @@ async function drawClosure() {
     ['Mean points per step', m.mean_points_per_step.toLocaleString()],
   ].map(([a, b]) => `<div class="stat"><span>${a}</span><b>${b}</b></div>`).join('');
   Plotly.newPlot('closureChart', [
-    { x: d.time, y: d.winding_sum, type: 'scattergl', mode: 'lines', line: { color: '#3987e5', width: 1 }, name: 'Σ index',
-      hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Σ index %{y}<extra></extra>' },
+    { x: d.winding_sum.map((_, n) => n), y: d.winding_sum, text: d.label, type: 'scattergl', mode: 'lines',
+      line: { color: '#3987e5', width: 1 }, name: 'Σ index', hovertemplate: '%{text}<br>Σ index %{y}<extra></extra>' },
   ], {
     margin: { l: 28, r: 8, t: 6, b: 22 }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', showlegend: false,
     font: { family: 'Inter, Arial', size: 10, color: '#c3c2b7' },
-    xaxis: { gridcolor: 'rgba(255,255,255,0.06)' }, yaxis: { gridcolor: 'rgba(255,255,255,0.06)', zeroline: false },
+    xaxis: { gridcolor: 'rgba(255,255,255,0.06)', title: { text: 'step', standoff: 2 } },
+    yaxis: { gridcolor: 'rgba(255,255,255,0.06)', zeroline: false },
     shapes: [{ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 2, y1: 2, line: { color: '#f5c542', width: 1, dash: 'dot' } }],
   }, { displayModeBar: false, responsive: true });
 }
@@ -307,16 +335,16 @@ async function drawClosure() {
 // ------------------------------------------------------------------ location
 async function selectCell(lat, lon) {
   $('cell').innerHTML = `Loading ${fmtLat(lat)}, ${fmtLon(lon)}…`;
-  const d = await getJSON(`/api/cell?lat=${lat.toFixed(2)}&lon=${lon.toFixed(2)}`);
+  const d = await getJSON(api('cell', `lat=${lat.toFixed(2)}&lon=${lon.toFixed(2)}`));
   $('cell').innerHTML = `<div class="stat"><span>Location</span><b>${fmtLat(lat)}, ${fmtLon(lon)}</b></div>` +
-    [['Saddle within 250 km', d.mean.saddle], ['Node within 250 km', d.mean.node], ['Focus within 250 km', d.mean.focus],
+    [[`Saddle within ${d.radius_km} km`, d.mean.saddle], [`Node within ${d.radius_km} km`, d.mean.node], [`Focus within ${d.radius_km} km`, d.mean.focus],
      ['Attracting (convergent)', d.mean.attracting]].map(([a, b]) =>
       `<div class="stat"><span>${a}</span><b>${(b * 100).toFixed(1)}% of steps</b></div>`).join('') +
     `<div class="stat"><span>Longest-lived point nearby</span><b>${d.longest_track_h} h</b></div>`;
   $('cellChart').style.display = 'block';
-  const x = d.monthly.map(r => r.month);
+  const x = d.series.map(r => r.period);
   Plotly.newPlot('cellChart', ['saddle', 'node', 'focus'].map(f => ({
-    x, y: d.monthly.map(r => r[f] * 100), type: 'scatter', mode: 'lines+markers', name: f,
+    x, y: d.series.map(r => r[f] * 100), type: 'scatter', mode: 'lines+markers', name: f,
     line: { color: { saddle: '#d95926', node: '#3987e5', focus: '#199e70' }[f], width: 2 }, marker: { size: 5 },
     hovertemplate: `%{x} · ${f}: %{y:.1f}%<extra></extra>` })), {
     margin: { l: 30, r: 8, t: 6, b: 24 }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
@@ -367,7 +395,7 @@ $('slider').oninput = e => loadFrame(+e.target.value);
 $('play').onclick = () => {
   playing = !playing; $('play').textContent = playing ? '❚❚ Pause' : '▶ Play';
   clearInterval(timer);
-  if (playing) timer = setInterval(() => loadFrame((state.i + 1) % META.times.length), +$('speed').value);
+  if (playing) timer = setInterval(() => loadFrame((state.i + 1) % META.labels.length), +$('speed').value);
 };
 $('speed').onchange = () => { if (playing) { $('play').click(); $('play').click(); } };
 ['heatKind', 'heatSeason', 'lyrHeat'].forEach(id => $(id).onchange = drawHeat);
@@ -378,14 +406,40 @@ addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; cam
 
 // ------------------------------------------------------------------ go
 function loop() { controls.update(); stepParticles(); renderer.render(scene, camera); requestAnimationFrame(loop); }
+async function loadPlanet(planet) {
+  state.planet = planet; $('planet').value = planet;
+  if (playing) $('play').click();
+  META = await getJSON(api('meta'));
+  setSurface(planet);
+  $('slider').max = META.labels.length - 1;
+  $('heatSeason').innerHTML = '<option value="all">All seasons</option>' + META.seasons.map(s => `<option>${s}</option>`).join('');
+  const extra = planet === 'mars' ? ' Mars textures: Solar System Scope (CC BY 4.0).' : ' Earth imagery: NASA Blue Marble.';
+  $('source').innerHTML = `${META.source.name}, ${META.resolution} grid, ${META.periods[0]} to ${META.periods.at(-1)} ` +
+    `(${META.periods.length} periods, ${META.labels.length.toLocaleString()} steps). ${META.source.attribution}. ` +
+    `Licence: ${META.source.license}.${extra}`;
+  $('cell').innerHTML = 'Click anywhere on the globe.'; $('cellChart').style.display = 'none';
+  wind.ctx.clearRect(0, 0, wind.canvas.width, wind.canvas.height);
+  await loadFrame(0);
+  await Promise.all([drawHeat(), drawClosure(), drawModel()]);
+}
+$('lyrFc').onchange = drawForecast;
+async function drawModel() {
+  const m = await getJSON('/api/model').catch(() => null);
+  if (state.planet !== 'earth') { $('model').innerHTML = 'The TopoNet forecast is trained on Earth (ERA5). A Mars model needs more Mars years than one.'; return; }
+  if (!m || m.error) { $('model').innerHTML = 'No model trained yet.'; return; }
+  const order = ['persistence', 'climatology', 'logistic', 'vertex-gnn', 'toponet'];
+  $('model').innerHTML = `<div class="note" style="margin:0 0 6px">${m.target}. Test ${m.split.test[0]}–${m.split.test.at(-1)}, ` +
+    `${m.test_steps} steps × ${m.vertices.toLocaleString()} vertices, base rate ${(m.base_rate * 100).toFixed(1)}%.</div>` +
+    order.filter(k => m.results[k]).map(k => `<div class="stat"><span>${k}</span><b>AP ${m.results[k].avg_precision.toFixed(3)} · AUC ${m.results[k].roc_auc.toFixed(3)}</b></div>`).join('') +
+    `<div class="note">Average precision is the honest score at this base rate. Magenta dots on the globe are TopoNet's probability (≥ 0.15) on held-out steps.</div>`;
+}
+$('planet').onchange = e => loadPlanet(e.target.value).catch(err => alert(err.message));
 (async () => {
   try {
-    META = await getJSON('/api/meta');
-    $('slider').max = META.times.length - 1;
-    $('source').innerHTML = `${META.source.name}, ${META.resolution} grid, ${META.months[0]} to ${META.months.at(-1)} ` +
-      `(${META.months.length} months). ${META.source.attribution}. Licence: ${META.source.license}.`;
-    await loadFrame(0);
-    await Promise.all([drawHeat(), drawClosure()]);
+    const avail = await getJSON('/api/planets');
+    for (const opt of $('planet').options) if (!avail[opt.value]?.periods) { opt.disabled = true; opt.text += ' (processing…)'; }
+    if (!avail[state.planet]?.periods) state.planet = 'earth';
+    await loadPlanet(state.planet);
     $('loading').remove();
     loop();
   } catch (e) { $('loading').textContent = 'Could not load: ' + e.message; }
