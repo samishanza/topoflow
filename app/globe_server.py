@@ -23,10 +23,17 @@ from topoflow.sources.registry import SOURCES
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = Path(__file__).resolve().parent / "globe"
+EARTH_SEASONS = {"DJF": (12, 1, 2), "MAM": (3, 4, 5), "JJA": (6, 7, 8), "SON": (9, 10, 11)}
+# Each data product is its own "planet" key; the three Earth reanalyses share Earth's seasons and radius.
 PLANETS = {
-    "earth": {"root": ROOT / "data" / "era5" / "months" / "1deg", "radius_km": 6371.0,
-              "seasons": {"DJF": (12, 1, 2), "MAM": (3, 4, 5), "JJA": (6, 7, 8), "SON": (9, 10, 11)}},
-    "mars": {"root": ROOT / "data" / "mars" / "periods" / "5deg", "radius_km": 3389.5,
+    "earth": {"root": ROOT / "data" / "era5" / "months" / "1deg", "radius_km": 6371.0, "body": "earth",
+              "label": "ERA5 (ECMWF), 1 deg", "seasons": EARTH_SEASONS},
+    "earth_ncep_r1": {"root": ROOT / "data" / "ncep_r1" / "months" / "T62", "radius_km": 6371.0, "body": "earth",
+                      "label": "NCEP/NCAR R1, T62", "seasons": EARTH_SEASONS},
+    "earth_ncep_r2": {"root": ROOT / "data" / "ncep_r2" / "months" / "T62", "radius_km": 6371.0, "body": "earth",
+                      "label": "NCEP-DOE R2, T62", "seasons": EARTH_SEASONS},
+    "mars": {"root": ROOT / "data" / "mars" / "periods" / "5deg", "radius_km": 3389.5, "body": "mars",
+             "label": "OpenMARS, 5 deg",
              # Solar longitude quarters: northern spring, summer, autumn, winter.
              "seasons": {"Ls0-90": (0, 90), "Ls90-180": (90, 180), "Ls180-270": (180, 270), "Ls270-360": (270, 360)}},
 }
@@ -65,7 +72,7 @@ class Store:
         if season == "all":
             return True
         rng = PLANETS[self.planet]["seasons"][season]
-        if self.planet == "earth":
+        if PLANETS[self.planet]["body"] == "earth":
             return int(period[5:7]) in rng
         lo, hi = self.summaries[period]["ls_range"]
         mid = (lo + hi) / 2 if hi >= lo else ((lo + hi + 360) / 2) % 360
@@ -134,8 +141,8 @@ def create_app() -> Flask:
 
     @app.get("/api/planets")
     def planets():
-        return jsonify({p: {"periods": len(list(cfg["root"].glob("*/summary.json"))), "seasons": list(cfg["seasons"])}
-                        for p, cfg in PLANETS.items()})
+        return jsonify({p: {"periods": len(list(cfg["root"].glob("*/summary.json"))), "seasons": list(cfg["seasons"]),
+                            "body": cfg["body"], "label": cfg["label"]} for p, cfg in PLANETS.items()})
 
     @app.get("/api/meta")
     def meta():
@@ -147,8 +154,15 @@ def create_app() -> Flask:
                 by_kind[k] = by_kind.get(k, 0) + int(v)
         src = s.summaries[s.periods[-1]]["source"]
         entry = SOURCES.get(src["id"])
+        starts = cl.groupby("period", sort=False).apply(lambda g: int(g.index.min()), include_groups=False)
+        if s.planet == "mars":
+            step_h = float(np.median(np.diff(cl["time"].values[:50]))) * 24.6597
+        else:
+            step_h = float(pd.Series(pd.DatetimeIndex(cl["time"])).diff().dt.total_seconds().median() / 3600)
         return jsonify({
-            "planet": s.planet, "periods": s.periods, "labels": cl["label"].tolist(),
+            "planet": s.planet, "body": PLANETS[s.planet]["body"], "radius_km": PLANETS[s.planet]["radius_km"],
+            "step_hours": round(step_h, 4), "period_start": {m: int(starts[m]) for m in s.periods},
+            "periods": s.periods, "labels": cl["label"].tolist(),
             "resolution": src["resolution"], "points": int(sum(x["points"] for x in s.summaries.values())),
             "by_kind": by_kind, "seasons": list(PLANETS[s.planet]["seasons"]),
             "closure": {
@@ -188,7 +202,47 @@ def create_app() -> Flask:
             "closure": {c: int(row[c]) for c in ("winding_sum", "edge_error", "edge_flips", "cap_north",
                                                  "cap_south", "n_points")},
             "forecast": forecast_for(key) if s.planet == "earth" else None,
+            "next": min(i + 1, len(s.keys) - 1),
         })
+
+    @app.get("/api/agreement")
+    def agreement():
+        """Do independent reanalyses agree on where and how often stagnation happens? Same months only."""
+        prods = [p for p, c in PLANETS.items() if c["body"] == "earth" and any(c["root"].glob("*/summary.json"))]
+        stores = {p: store_for(p) for p in prods}
+        common = sorted(set.intersection(*(set(s.periods) for s in stores.values()))) if stores else []
+        out = {"products": {}, "common_months": common, "pattern_r": {}}
+        if not common:
+            return jsonify(out)
+        grid_lat, grid_lon = np.arange(-88.75, 90, 2.5), np.arange(-178.75, 180, 2.5)
+        fields = {}
+        for p, s in stores.items():
+            cl = s.closure[s.closure["period"].isin(common)]
+            out["products"][p] = {"label": PLANETS[p]["label"], "steps": len(cl),
+                                  "share_exactly_2": round(float((cl.winding_sum == 2).mean()), 4),
+                                  "mean_points_per_step": round(float(cl.n_points.mean()), 1)}
+            total, steps, lat, lon = None, 0, None, None
+            for m in common:
+                with xr.open_dataset(s.root / m / "occupancy.nc") as ds:
+                    a = ds["occupancy"].sel(layer="all").values
+                    lat, lon = ds["lat"].values, ds["lon"].values
+                    steps += int(ds.attrs["steps"])
+                total = a if total is None else total + a
+            f = total / steps
+            ii = np.abs(lat[:, None] - grid_lat[None, :]).argmin(0)
+            jj = np.abs(lon[:, None] - grid_lon[None, :]).argmin(0)
+            fields[p] = f[np.ix_(ii, jj)].ravel()
+        names = list(fields)
+        w = np.repeat(np.cos(np.deg2rad(grid_lat)), len(grid_lon))
+        for a_i in range(len(names)):
+            for b_i in range(a_i + 1, len(names)):
+                x, y = fields[names[a_i]], fields[names[b_i]]
+                xm, ym = (x * w).sum() / w.sum(), (y * w).sum() / w.sum()
+                r = ((w * (x - xm) * (y - ym)).sum() / np.sqrt((w * (x - xm) ** 2).sum() * (w * (y - ym) ** 2).sum()))
+                out["pattern_r"][f"{names[a_i]} vs {names[b_i]}"] = round(float(r), 3)
+        out["note"] = ("Area-weighted correlation of where stagnation occurs (share of steps with any stagnation point "
+                       "within one cell), on a common 2.5 deg grid, over months every product has.")
+        return jsonify(out)
 
     @app.get("/api/model")
     def model():

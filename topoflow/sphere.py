@@ -51,6 +51,12 @@ def prepare(u, v, lats, lons):
     v = np.asarray(v, float)[..., oi, :][..., :, oj]
     keep = np.abs(lats) < 90 - 1e-6
     lats, u, v = lats[keep], u[..., keep, :], v[..., keep, :]
+    # Break exact degeneracies (a zero vector on a grid node, exactly opposite neighbours), which packed data such as
+    # NCEP's 0.01 m/s storage produces. The perturbation is deterministic and 1e5 times below that precision, so no
+    # real value changes; it only decides ties the way "simulation of simplicity" does.
+    ii, jj = np.meshgrid(np.arange(u.shape[-2]), np.arange(u.shape[-1]), indexing="ij")
+    u = u + 1e-7 * np.sin(1.3 * ii + 2.7 * jj + 0.5)
+    v = v + 1e-7 * np.cos(2.1 * ii + 0.9 * jj + 1.1)
     lons_c = np.append(lons, lons[0] + 360)
     u = np.concatenate([u, u[..., :, :1]], axis=-1)
     v = np.concatenate([v, v[..., :, :1]], axis=-1)
@@ -88,6 +94,16 @@ def cell_indices(u, v, lats, lons_c):
     # North edge of (i, j) vs south edge of (i+1, j).
     north = steps[2][:-1] + steps[0][1:]
     err[:-1] += np.rint(np.nan_to_num(north) / TWO_PI).astype(int)
+    # Polar ring edges are read once in the pole's frame (by the cap) and once by the cells along the ring.
+    ring = np.zeros((2, idx.shape[1]), dtype=int)
+    lo = lons_c[:-1]
+    for r_i, (row, cell_step) in enumerate(((-1, steps[2][-1]), (0, steps[0][0]))):
+        V = _to3d(u[row, :-1], v[row, :-1], np.full_like(lo, lats[row]), lo)
+        a = np.arctan2(V[:, 1], V[:, 0])
+        cap = _wrap(np.diff(np.append(a, a[0])))
+        ring[r_i] = np.rint(np.nan_to_num(cap + cell_step) / TWO_PI).astype(int)
+    err[-1] += ring[0]
+    err[0] += ring[1]
     return idx, err
 
 

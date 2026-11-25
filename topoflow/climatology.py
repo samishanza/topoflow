@@ -49,10 +49,12 @@ def _family(kind: str) -> str:
 def gate_month(ds: xr.Dataset) -> list[str]:
     """Deterministic admissibility for a raw month. Returns reasons to refuse; empty means admitted."""
     problems = []
-    for var, key, unit_ok in (("u10", "wind.u10", {"m s**-1", "m s-1"}), ("v10", "wind.v10", {"m s**-1", "m s-1"}),
+    wind_units = {"m s**-1", "m s-1", "m/s"}
+    for var, key, unit_ok in (("u10", "wind.u10", wind_units), ("v10", "wind.v10", wind_units),
                               ("blh", "met.blh", {"m"})):
         if var not in ds:
-            problems.append(f"{var} missing")
+            if var != "blh":  # boundary-layer height is optional: not every reanalysis serves it
+                problems.append(f"{var} missing")
             continue
         spec = FIELDS[key]
         da = ds[var]
@@ -133,9 +135,10 @@ def _occupancy_step(hit: np.ndarray) -> np.ndarray:
     return np.stack([near[[KINDS.index(k) for k in LAYER_MEMBERS[layer]]].any(0) for layer in LAYERS]).astype("int32")
 
 
-def process_month(raw: Path, res_tag: str, tracker: Tracker | None = None) -> dict:
+def process_month(raw: Path, res_tag: str, tracker: Tracker | None = None, out_root: Path | None = None,
+                  source_id: str | None = None, display_stride: int = 2) -> dict:
     month = raw.name.split("_")[1]
-    out = OUT / res_tag / month
+    out = (out_root or OUT) / res_tag / month
     out.mkdir(parents=True, exist_ok=True)
     ds = xr.open_dataset(raw)
     tdim = "valid_time" if "valid_time" in ds.dims else "time"
@@ -182,20 +185,22 @@ def process_month(raw: Path, res_tag: str, tracker: Tracker | None = None) -> di
         out / "occupancy.nc", encoding={"occupancy": {"zlib": True}})
 
     # Display grid: every second degree, poles included, longitudes -180..178.
-    disp = ds[["u10", "v10", "blh"]].sortby("latitude").assign_coords(
+    have = [v for v in ("u10", "v10", "blh") if v in ds]
+    disp = ds[have].sortby("latitude").assign_coords(
         longitude=((ds["longitude"] + 180) % 360) - 180).sortby("longitude")
-    disp = disp.isel(latitude=slice(None, None, 2), longitude=slice(None, None, 2)).astype("float32")
+    s = display_stride
+    disp = disp.isel(latitude=slice(None, None, s), longitude=slice(None, None, s)).astype("float32")
     # NetCDF has no float16: pack as int16 (0.01 m/s for wind, 0.25 m for BLH), compressed.
-    pack = {"u10": 0.01, "v10": 0.01, "blh": 0.25}
+    pack = {k: v for k, v in {"u10": 0.01, "v10": 0.01, "blh": 0.25}.items() if k in have}
     disp.to_netcdf(out / "display.nc", encoding={v: {"zlib": True, "complevel": 5, "dtype": "int16",
                                                      "scale_factor": s, "_FillValue": -32768}
                                                  for v, s in pack.items()})
 
-    entry = SOURCES["arco_era5" if "ARCO" in ds.attrs.get("source", "") else "cds_era5"]
+    entry = SOURCES[source_id or ("arco_era5" if "ARCO" in ds.attrs.get("source", "") else "cds_era5")]
     summary = {
         "month": month, "processed_at": now_iso(), "steps": len(times),
         "source": {"id": entry.id, "name": entry.name, "license": entry.license, "attribution": entry.attribution,
-                   "file": raw.name, "variables": ["u10", "v10", "blh"], "resolution": res_tag},
+                   "file": raw.name, "variables": have, "resolution": res_tag},
         "gate": "admitted",
         "points": len(rows),
         "closure_exact_2": int((cl.winding_sum == 2).sum()),

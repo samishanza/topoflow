@@ -8,40 +8,44 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #05070d; --panel: rgba(14, 18, 28, 0.82); --rule: rgba(255,255,255,0.08);
+    --bg: #0b0e14; --panel: rgba(17, 21, 30, 0.86); --rule: rgba(255,255,255,0.08);
     --ink: #f0efec; --ink2: #c3c2b7; --muted: #8a8984;
     /* Categorical slots 1-3, dark-mode steps, validated all-pairs (CVD dE 9.4, normal 20.9, all >= 3:1). */
     --node: #3987e5; --saddle: #d95926; --focus: #199e70;
-    --heat: #f5c542; --good: #0ca30c; --bad: #e66767;
+    --heat: #f5c542;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: Inter, Arial, sans-serif; overflow: hidden; }
   #globe { position: fixed; inset: 0; }
   .panel { position: fixed; background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--rule); border-radius: 14px; padding: 14px 16px; }
-  #left { top: 16px; left: 16px; width: 300px; max-height: calc(100vh - 140px); overflow-y: auto; }
-  #right { top: 16px; right: 16px; width: 360px; max-height: calc(100vh - 140px); overflow-y: auto; }
-  #bottom { left: 16px; right: 16px; bottom: 16px; display: flex; gap: 14px; align-items: center; padding: 10px 16px; }
-  h1 { font-size: 20px; margin: 0 0 2px; font-weight: 700; letter-spacing: 0.2px; }
-  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin: 18px 0 8px; font-weight: 600; }
+  #left { top: 16px; left: 16px; width: 310px; max-height: calc(100vh - 150px); overflow-y: auto; }
+  #right { top: 16px; right: 16px; width: 370px; max-height: calc(100vh - 150px); overflow-y: auto; }
+  #bottom { left: 16px; right: 16px; bottom: 16px; display: flex; gap: 12px; align-items: center; padding: 10px 16px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0 0 2px; font-weight: 700; }
+  h2 { font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin: 18px 0 8px; font-weight: 600; }
   .sub { color: var(--ink2); font-size: 12px; line-height: 1.45; }
   label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink2); margin: 5px 0; cursor: pointer; }
   select, button { background: rgba(255,255,255,0.06); color: var(--ink); border: 1px solid var(--rule); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 13px; }
+  select { max-width: 100%; }
   button { cursor: pointer; }
   button:hover { background: rgba(255,255,255,0.12); }
-  input[type=range] { flex: 1; accent-color: var(--heat); }
+  input[type=range] { flex: 1; min-width: 200px; accent-color: var(--heat); }
   .swatch { width: 12px; height: 12px; display: inline-block; flex: none; }
-  .stat { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--rule); }
-  .stat b { font-weight: 600; color: var(--ink); }
+  .stat { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--rule); }
+  .stat b { font-weight: 600; color: var(--ink); text-align: right; }
   .stat span { color: var(--ink2); }
   .badge { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
   .ok { background: rgba(12,163,12,0.18); color: #6ee06e; }
   .warn { background: rgba(230,103,103,0.18); color: #ffaaaa; }
-  #time { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 170px; }
-  #tip { position: fixed; pointer-events: none; background: rgba(8,10,16,0.92); border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; font-size: 12px; display: none; max-width: 260px; line-height: 1.45; }
+  #time { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 210px; }
+  #tip { position: fixed; pointer-events: none; background: rgba(8,10,16,0.94); border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; font-size: 12px; display: none; max-width: 270px; line-height: 1.45; z-index: 5; }
   .hot { cursor: pointer; font-size: 12px; color: var(--ink2); padding: 3px 0; }
   .hot:hover { color: var(--ink); }
   .chart { width: 100%; height: 150px; }
   .note { font-size: 11px; color: var(--muted); line-height: 1.4; margin-top: 6px; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+  #legend { width: 100%; height: 10px; border-radius: 3px; display: block; margin-top: 6px; }
+  .ticks { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); }
   #loading { position: fixed; inset: 0; display: grid; place-items: center; color: var(--ink2); font-size: 14px; }
   @media (max-width: 900px) { #right { display: none; } #left { width: calc(100vw - 32px); max-height: 40vh; } }
 </style>
@@ -52,17 +56,25 @@
 
 <div id="left" class="panel">
   <h1>TopoFlow</h1>
-  <div class="sub" id="blurb">Atmospheric stagnation points over the whole planet, classified by the Jacobian and checked against the Poincaré–Hopf theorem at every step.</div>
+  <div class="sub">Atmospheric stagnation points over the whole planet from reanalysis winds, classified by the Jacobian and checked against the Poincaré–Hopf theorem at every step.</div>
 
-  <h2>Planet</h2>
-  <select id="planet"><option value="earth">Earth · ERA5 10 m wind</option><option value="mars">Mars · OpenMARS near-surface wind</option></select>
+  <h2>Planet and data source</h2>
+  <select id="planet"></select>
 
-  <h2>Layers</h2>
-  <label><input type="checkbox" id="lyrWind" checked> Wind particles (10 m)</label>
-  <label><input type="checkbox" id="lyrPts" checked> Stagnation points (this step)</label>
-  <label><input type="checkbox" id="lyrHeat" checked> Persistence (all steps)</label>
+  <h2>Wind (real field of the shown step)</h2>
+  <label><input type="checkbox" id="lyrWind" checked> Particles carried by the wind</label>
+  <canvas id="legend" width="300" height="10"></canvas>
+  <div class="ticks"><span>0</span><span>5</span><span>10</span><span>15</span><span>≥20 m/s</span></div>
+  <div class="row"><span class="sub">Time-lapse</span>
+    <select id="lapse"><option value="1">1 s = 1 h</option><option value="3" selected>1 s = 3 h</option><option value="6">1 s = 6 h</option><option value="12">1 s = 12 h</option></select>
+  </div>
+  <div class="note">Each particle moves at the actual wind speed and direction at its position, sped up by the time-lapse. Playback runs at the same rate, so a particle and the clock move together; between steps the two neighbouring fields are blended linearly.</div>
+
+  <h2>Stagnation</h2>
+  <label><input type="checkbox" id="lyrPts" checked> Points at this step</label>
+  <label><input type="checkbox" id="lyrHeat" checked> Persistence, all steps loaded</label>
   <label><input type="checkbox" id="lyrFc" checked> TopoNet 24 h forecast (test steps)</label>
-  <div style="display:flex; gap:8px; margin-top:6px">
+  <div class="row">
     <select id="heatKind">
       <option value="all">All kinds</option><option value="saddle">Saddles</option>
       <option value="node">Nodes</option><option value="focus">Foci</option>
@@ -71,14 +83,14 @@
     </select>
     <select id="heatSeason"><option value="all">All seasons</option></select>
   </div>
-
-  <h2>Stagnation kinds</h2>
-  <label><input type="checkbox" class="kind" value="saddle" checked><span class="swatch" style="background:var(--saddle); transform:rotate(45deg); width:10px;height:10px"></span> Saddle (index −1)</label>
-  <label><input type="checkbox" class="kind" value="attracting_node" checked><span class="swatch" style="background:var(--node); border-radius:50%"></span> Attracting node (+1)</label>
-  <label><input type="checkbox" class="kind" value="repelling_node" checked><span class="swatch" style="border:2px solid var(--node); border-radius:50%"></span> Repelling node (+1)</label>
-  <label><input type="checkbox" class="kind" value="attracting_focus" checked><span class="swatch" style="background:var(--focus); transform:rotate(45deg); border-radius:2px"></span> Attracting focus (+1)</label>
-  <label><input type="checkbox" class="kind" value="repelling_focus" checked><span class="swatch" style="border:2px solid var(--focus); transform:rotate(45deg)"></span> Repelling focus (+1)</label>
-  <label><input type="checkbox" class="kind" value="center" checked><span class="swatch" style="border:2px solid var(--ink2); border-radius:50%"></span> Center (+1)</label>
+  <div style="margin-top:8px">
+    <label><input type="checkbox" class="kind" value="saddle" checked><span class="swatch" style="background:var(--saddle); transform:rotate(45deg); width:10px;height:10px"></span> Saddle (index −1)</label>
+    <label><input type="checkbox" class="kind" value="attracting_node" checked><span class="swatch" style="background:var(--node); border-radius:50%"></span> Attracting node (+1)</label>
+    <label><input type="checkbox" class="kind" value="repelling_node" checked><span class="swatch" style="border:2px solid var(--node); border-radius:50%"></span> Repelling node (+1)</label>
+    <label><input type="checkbox" class="kind" value="attracting_focus" checked><span class="swatch" style="background:var(--focus); transform:rotate(45deg); border-radius:2px"></span> Attracting focus (+1)</label>
+    <label><input type="checkbox" class="kind" value="repelling_focus" checked><span class="swatch" style="border:2px solid var(--focus); transform:rotate(45deg)"></span> Repelling focus (+1)</label>
+    <label><input type="checkbox" class="kind" value="center" checked><span class="swatch" style="border:2px solid var(--ink2); border-radius:50%"></span> Center (+1)</label>
+  </div>
 
   <h2>Persistence hotspots</h2>
   <div id="hotspots" class="sub"></div>
@@ -91,13 +103,14 @@
   <h2>Poincaré–Hopf closure</h2>
   <div id="closureStats"></div>
   <div id="closureChart" class="chart"></div>
-  <div class="note">On a sphere the indices of all stagnation points must sum to χ(S²) = 2. Every step satisfies <i>winding sum = 2 + edge error</i>: each departure from 2 is a grid edge where the wind turns too sharply for the grid to read.</div>
+  <div class="note">On a sphere the indices of all stagnation points sum to χ(S²) = 2. Every step satisfies <i>Σ index = 2 + edge error</i>: each departure is a grid edge where the wind turns too sharply between neighbouring grid points for the grid to resolve.</div>
+  <div id="agreeBox"><h2>Agreement across reanalyses</h2><div id="agree" class="sub"></div></div>
   <h2>Topological deep learning</h2>
   <div id="model" class="sub"></div>
   <h2>Selected location</h2>
   <div id="cell" class="sub">Click anywhere on the globe.</div>
   <div id="cellChart" class="chart" style="display:none"></div>
-  <h2>Source</h2>
+  <h2>Sources</h2>
   <div id="source" class="note"></div>
 </div>
 
@@ -105,7 +118,7 @@
   <button id="play">▶ Play</button>
   <span id="time">—</span>
   <input type="range" id="slider" min="0" max="0" value="0">
-  <select id="speed"><option value="600">1×</option><option value="250" selected>2×</option><option value="90">5×</option></select>
+  <select id="jump" title="Jump to a month or period"></select>
 </div>
 <div id="tip"></div>
 
@@ -119,67 +132,58 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const IMG = 'https://unpkg.com/three-globe@2.31.1/example/img/';
+const TEXTURES = { earth: IMG + 'earth-blue-marble.jpg', mars: '/static/textures/mars_2k.jpg' };
 const COLORS = { saddle: '#d95926', attracting_node: '#3987e5', repelling_node: '#3987e5',
                  attracting_focus: '#199e70', repelling_focus: '#199e70', center: '#c3c2b7' };
 const LABEL = k => k.replace('_', ' ');
 const $ = id => document.getElementById(id);
+const fmtLat = v => `${Math.abs(v).toFixed(1)}°${v >= 0 ? 'N' : 'S'}`;
+const fmtLon = v => `${Math.abs(v).toFixed(1)}°${v >= 0 ? 'E' : 'W'}`;
+async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(url + ' ' + r.status); return r.json(); }
 
-// ------------------------------------------------------------------ scene
-const host = $('globe');
+// ------------------------------------------------------------------ scene (no starfield: plain background)
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-host.appendChild(renderer.domElement);
+$('globe').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 100);
 camera.position.set(0, 0.6, 3.4);
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true; controls.minDistance = 1.35; controls.maxDistance = 8; controls.rotateSpeed = 0.5;
-controls.autoRotate = true; controls.autoRotateSpeed = 0.25;
-
-scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(5, 3, 5); scene.add(sun);
+controls.enableDamping = true; controls.minDistance = 1.3; controls.maxDistance = 8; controls.rotateSpeed = 0.5;
+controls.autoRotate = true; controls.autoRotateSpeed = 0.2;
+scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+const sun = new THREE.DirectionalLight(0xffffff, 1.1); sun.position.set(5, 3, 5); scene.add(sun);
 
 const loader = new THREE.TextureLoader();
-loader.load(IMG + 'night-sky.png', t => { t.colorSpace = THREE.SRGBColorSpace; scene.background = t; });
-const earthMat = new THREE.MeshPhongMaterial({ shininess: 8 });
+const surfaceMat = new THREE.MeshPhongMaterial({ shininess: 6 });
 let earthBump = null;
-loader.load(IMG + 'earth-topology.png', t => { earthBump = t; });
-function setSurface(planet) {
-  loader.load(TEXTURES[planet], t => { t.colorSpace = THREE.SRGBColorSpace; earthMat.map = t;
-    earthMat.bumpMap = planet === 'earth' ? earthBump : null; earthMat.bumpScale = 0.015; earthMat.needsUpdate = true; });
-  glow.material.uniforms.tint.value.set(planet === 'earth' ? 0x5999ff : 0xd9874c);
-}
-const earth = new THREE.Mesh(new THREE.SphereGeometry(1, 128, 128), earthMat);
-scene.add(earth);
-
-// Atmosphere glow (fresnel rim).
-const glow = new THREE.Mesh(new THREE.SphereGeometry(1.12, 64, 64), new THREE.ShaderMaterial({
+loader.load(IMG + 'earth-topology.png', t => { earthBump = t; if (state.body === 'earth') { surfaceMat.bumpMap = t; surfaceMat.bumpScale = 0.012; surfaceMat.needsUpdate = true; } });
+const globe = new THREE.Mesh(new THREE.SphereGeometry(1, 160, 160), surfaceMat);
+scene.add(globe);
+const glow = new THREE.Mesh(new THREE.SphereGeometry(1.1, 64, 64), new THREE.ShaderMaterial({
   transparent: true, side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending,
+  uniforms: { tint: { value: new THREE.Color(0x5999ff) } },
   vertexShader: `varying vec3 vN; void main(){ vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-  uniforms: { tint: { value: new THREE.Color(0.35, 0.6, 1.0) } },
-  fragmentShader: `uniform vec3 tint; varying vec3 vN; void main(){ float i = pow(0.68 - dot(vN, vec3(0,0,1.0)), 3.0); gl_FragColor = vec4(tint,1.0) * i; }`
+  fragmentShader: `uniform vec3 tint; varying vec3 vN; void main(){ float i = pow(0.66 - dot(vN, vec3(0,0,1.0)), 3.0); gl_FragColor = vec4(tint,1.0) * i; }`
 }));
 scene.add(glow);
 
-// Equirectangular overlay layers: persistence heat and wind particle trails.
 function overlay(radius, w, h) {
   const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
-  const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace;
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 128, 128),
+  const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 160, 160),
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
   scene.add(mesh);
-  return { canvas, ctx: canvas.getContext('2d'), tex, mesh };
+  return { canvas, ctx: canvas.getContext('2d'), tex };
 }
-const heat = overlay(1.002, 1440, 720);
-const wind = overlay(1.005, 2048, 1024);
-
+const heat = overlay(1.002, 2048, 1024);
+const wind = overlay(1.005, 4096, 2048);
 const toXYZ = (lat, lon, r = 1.01) => {
   const la = lat * Math.PI / 180, lo = lon * Math.PI / 180;
   return new THREE.Vector3(r * Math.cos(la) * Math.cos(lo), r * Math.sin(la), -r * Math.cos(la) * Math.sin(lo));
 };
 
-// Point sprites, one material per kind (shape carries the kind as well as colour).
 function sprite(kind) {
   const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
   g.translate(32, 32); g.strokeStyle = g.fillStyle = COLORS[kind]; g.lineWidth = 9;
@@ -187,20 +191,139 @@ function sprite(kind) {
   if (kind === 'saddle') { g.lineCap = 'round'; g.beginPath(); g.moveTo(-20,-20); g.lineTo(20,20); g.moveTo(20,-20); g.lineTo(-20,20); g.stroke(); }
   else if (kind.endsWith('focus')) { g.rotate(Math.PI / 4); open ? g.strokeRect(-17,-17,34,34) : g.fillRect(-19,-19,38,38); }
   else { g.beginPath(); g.arc(0, 0, open ? 20 : 22, 0, Math.PI * 2); open ? g.stroke() : g.fill(); }
-  const t = new THREE.CanvasTexture(c);
-  return new THREE.PointsMaterial({ size: 0.065, map: t, transparent: true, depthWrite: false, sizeAttenuation: true });
+  return new THREE.PointsMaterial({ size: 0.06, map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false });
 }
 const kinds = Object.keys(COLORS);
 const pointLayers = {};
-for (const k of kinds) {
-  const pts = new THREE.Points(new THREE.BufferGeometry(), sprite(k));
-  pts.userData.kind = k; pointLayers[k] = pts; scene.add(pts);
+for (const k of kinds) { const p = new THREE.Points(new THREE.BufferGeometry(), sprite(k)); pointLayers[k] = p; scene.add(p); }
+const fcLayer = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({
+  size: 0.02, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+scene.add(fcLayer);
+
+// ------------------------------------------------------------------ state
+const state = { planet: new URLSearchParams(location.search).get('planet') || 'earth', body: 'earth', i: 0 };
+const api = (path, q = '') => `/api/${path}?planet=${state.planet}${q ? '&' + q : ''}`;
+let META = null, FRAME = null, NEXT = null, playing = false, stepStart = 0, alpha = 0;
+
+// ------------------------------------------------------------------ wind particles: real advection
+// Speed ramp (single hue, light = fast) used for both the particles and the legend.
+const SPEED_BINS = [2, 5, 8, 12, 16, 1e9];
+const SPEED_COLOR = ['rgba(120,150,190,0.55)', 'rgba(150,185,225,0.7)', 'rgba(185,212,240,0.8)',
+                     'rgba(215,232,250,0.9)', 'rgba(240,247,255,0.95)', 'rgba(255,255,255,1)'];
+(() => { const c = $('legend').getContext('2d'); const W = 300;
+  for (let x = 0; x < W; x++) { const s = x / W * 20; const b = SPEED_BINS.findIndex(t => s < t); c.fillStyle = SPEED_COLOR[b]; c.fillRect(x, 0, 1, 10); } })();
+
+function sampler(F) {
+  const g = F.grid, nlat = g.lat.length, nlon = g.lon.length;
+  const lat0 = g.lat[0], dlat = g.lat[1] - g.lat[0], lon0 = g.lon[0], dlon = g.lon[1] - g.lon[0];
+  return (lat, lon) => {
+    let fi = (lat - lat0) / dlat; fi = Math.max(0, Math.min(nlat - 1.0001, fi));
+    let fj = ((lon - lon0) % 360 + 360) % 360 / dlon;
+    const i0 = Math.floor(fi), a = fi - i0, j0 = Math.floor(fj) % nlon, j1 = (j0 + 1) % nlon, b = fj - Math.floor(fj);
+    const at = (arr, i, j) => arr[i * nlon + j];
+    const bil = arr => (1-a)*(1-b)*at(arr,i0,j0) + (1-a)*b*at(arr,i0,j1) + a*(1-b)*at(arr,i0+1,j0) + a*b*at(arr,i0+1,j1);
+    return [bil(F.u), bil(F.v)];
+  };
+}
+let sampleNow = null, sampleNext = null;
+function windAt(lat, lon) {
+  if (!sampleNow) return [0, 0];
+  const [u0, v0] = sampleNow(lat, lon);
+  if (!playing || !sampleNext || alpha <= 0) return [u0, v0];
+  const [u1, v1] = sampleNext(lat, lon);
+  return [u0 + (u1 - u0) * alpha, v0 + (v1 - v0) * alpha];
+}
+const particles = [];
+function seed(p) { p.lat = Math.asin(Math.random() * 2 - 1) * 180 / Math.PI; p.lon = Math.random() * 360 - 180; p.age = Math.random() * 3; }
+for (let n = 0; n < 14000; n++) { const p = {}; seed(p); particles.push(p); }
+function clearTrails() { wind.ctx.clearRect(0, 0, wind.canvas.width, wind.canvas.height); wind.tex.needsUpdate = true; }
+
+let lastT = performance.now();
+function stepParticles(now) {
+  const dtReal = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  const { ctx, canvas } = wind, W = canvas.width, H = canvas.height;
+  ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = 'rgba(0,0,0,0.06)'; ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'source-over';
+  if (!FRAME || !$('lyrWind').checked) { wind.tex.needsUpdate = true; return; }
+  const dtSim = dtReal * (+$('lapse').value) * 3600;           // seconds of real air motion this frame
+  const R = META.radius_km * 1000, k = dtSim / R * 180 / Math.PI;  // metres -> degrees
+  const paths = SPEED_BINS.map(() => new Path2D());
+  for (const p of particles) {
+    p.age += dtReal;
+    if (p.age > 4 || Math.abs(p.lat) > 88) { seed(p); p.age = 0; continue; }
+    const [u, v] = windAt(p.lat, p.lon), s = Math.hypot(u, v);
+    const x0 = (p.lon + 180) / 360 * W, y0 = (90 - p.lat) / 180 * H;
+    p.lat += v * k; p.lon += u * k / Math.max(Math.cos(p.lat * Math.PI / 180), 0.05);
+    if (p.lon > 180) p.lon -= 360; if (p.lon < -180) p.lon += 360;
+    const x1 = (p.lon + 180) / 360 * W, y1 = (90 - p.lat) / 180 * H;
+    if (Math.abs(x1 - x0) > W / 4) continue;
+    const path = paths[SPEED_BINS.findIndex(t => s < t)];
+    path.moveTo(x0, y0); path.lineTo(x1, y1);
+  }
+  ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+  paths.forEach((path, b) => { ctx.strokeStyle = SPEED_COLOR[b]; ctx.stroke(path); });
+  wind.tex.needsUpdate = true;
 }
 
-// TopoNet forecast: vertices coloured by probability (single warm hue, magnitude in opacity via vertex colour).
-const fcLayer = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({
-  size: 0.022, vertexColors: true, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
-scene.add(fcLayer);
+// ------------------------------------------------------------------ persistence: smooth field, not blocks
+async function drawHeat() {
+  const { ctx, canvas } = heat, W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  if (!$('lyrHeat').checked) { heat.tex.needsUpdate = true; return; }
+  const d = await getJSON(api('persistence', `kind=${$('heatKind').value}&season=${$('heatSeason').value}`));
+  const nlat = d.lat.length, nlon = d.lon.length, vmax = d.max || 1;
+  // Native-resolution image, then bilinear upscaling plus a light blur: the field is continuous, so draw it that way.
+  const small = document.createElement('canvas'); small.width = nlon; small.height = nlat;
+  const sctx = small.getContext('2d'), img = sctx.createImageData(nlon, nlat);
+  for (let i = 0; i < nlat; i++) for (let j = 0; j < nlon; j++) {
+    const f = d.grid[i * nlon + j] / vmax, row = nlat - 1 - i, o = (row * nlon + j) * 4;
+    const a = f < 0.12 ? 0 : Math.min(0.6, (f - 0.12) / 0.88 * 0.6);
+    img.data[o] = 245; img.data[o + 1] = 197; img.data[o + 2] = 66; img.data[o + 3] = Math.round(a * 255);
+  }
+  sctx.putImageData(img, 0, 0);
+  const dlon = d.lon[1] - d.lon[0], dlat = Math.abs(d.lat[1] - d.lat[0]);
+  const x0 = (d.lon[0] - dlon / 2 + 180) / 360 * W, y0 = (90 - (d.lat[nlat - 1] + dlat / 2)) / 180 * H;
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.filter = `blur(${Math.max(1, W / nlon * 0.35)}px)`;
+  ctx.drawImage(small, x0, y0, nlon * dlon / 360 * W, nlat * dlat / 180 * H);
+  ctx.filter = 'none';
+  heat.tex.needsUpdate = true;
+  $('hotspots').innerHTML = d.hotspots.slice(0, 8).map(h =>
+    `<div class="hot" data-lat="${h.lat}" data-lon="${h.lon}">${fmtLat(h.lat)}, ${fmtLon(h.lon)} — ${(h.freq * 100).toFixed(1)}% of steps</div>`).join('');
+  document.querySelectorAll('.hot').forEach(el => el.onclick = () => { flyTo(+el.dataset.lat, +el.dataset.lon); selectCell(+el.dataset.lat, +el.dataset.lon); });
+  $('heatNote').textContent = `${d.note} ${d.steps.toLocaleString()} steps (${META.periods.length} periods). Brightest = ${(vmax * 100).toFixed(1)}%.`;
+}
+
+// ------------------------------------------------------------------ frames
+async function fetchFrame(i) { return getJSON(api('frame', `i=${i}`)); }
+function showFrame(F) {
+  FRAME = F; state.i = F.index; $('slider').value = F.index; sampleNow = sampler(F);
+  $('time').textContent = F.label;
+  const show = new Set([...document.querySelectorAll('.kind:checked')].map(e => e.value));
+  const counts = {};
+  for (const k of kinds) {
+    const sel = F.points.filter(p => p.kind === k); counts[k] = sel.length;
+    const pos = new Float32Array(sel.length * 3);
+    sel.forEach((p, n) => { const v = toXYZ(p.lat, p.lon, 1.012); pos.set([v.x, v.y, v.z], n * 3); });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    pointLayers[k].geometry.dispose(); pointLayers[k].geometry = g; pointLayers[k].userData.rows = sel;
+    pointLayers[k].visible = $('lyrPts').checked && show.has(k);
+  }
+  drawForecast();
+  const c = F.closure, total = Object.values(counts).reduce((a, b) => a + b, 0);
+  $('stepStats').innerHTML = [
+    ['Stagnation points', total.toLocaleString()],
+    ...kinds.filter(k => counts[k]).map(k => [LABEL(k), counts[k]]),
+    ['Polar caps (N / S)', `${c.cap_north >= 0 ? '+' : ''}${c.cap_north} / ${c.cap_south >= 0 ? '+' : ''}${c.cap_south}`],
+    ['Σ index', `<span class="badge ${c.winding_sum === 2 ? 'ok' : 'warn'}">${c.winding_sum}</span>`],
+    ['Edge error (flipped edges)', `${c.edge_error} (${c.edge_flips})`],
+  ].map(([a, b]) => `<div class="stat"><span>${a}</span><b>${b}</b></div>`).join('');
+}
+async function goTo(i) {
+  const F = await fetchFrame(i);
+  showFrame(F); clearTrails();
+  NEXT = null; alpha = 0;
+}
 function drawForecast() {
   const f = FRAME && FRAME.forecast;
   fcLayer.visible = !!(f && $('lyrFc').checked);
@@ -212,107 +335,21 @@ function drawForecast() {
   g.setAttribute('color', new THREE.BufferAttribute(col, 3)); fcLayer.geometry.dispose(); fcLayer.geometry = g;
 }
 
-// ------------------------------------------------------------------ state
-let META, FRAME = null, playing = false, timer = null, particles = [];
-const state = { i: 0, planet: new URLSearchParams(location.search).get('planet') || 'earth' };
-const api = (path, q = '') => `/api/${path}?planet=${state.planet}${q ? '&' + q : ''}`;
-const TEXTURES = { earth: IMG + 'earth-blue-marble.jpg', mars: '/static/textures/mars_2k.jpg' };
-
-async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(url + ' ' + r.status); return r.json(); }
-
-// ------------------------------------------------------------------ wind particles
-function sampleUV(lat, lon) {
-  const g = FRAME.grid, nlat = g.lat.length, nlon = g.lon.length;
-  const dlat = g.lat[1] - g.lat[0], dlon = g.lon[1] - g.lon[0];
-  let fi = (lat - g.lat[0]) / dlat, fj = (((lon - g.lon[0]) % 360) + 360) % 360 / dlon;
-  fi = Math.max(0, Math.min(nlat - 1.001, fi));
-  const i0 = Math.floor(fi), j0 = Math.floor(fj) % nlon, j1 = (j0 + 1) % nlon, a = fi - i0, b = fj - Math.floor(fj);
-  const at = (arr, i, j) => arr[i * nlon + j];
-  const bil = arr => (1-a)*(1-b)*at(arr,i0,j0) + (1-a)*b*at(arr,i0,j1) + a*(1-b)*at(arr,i0+1,j0) + a*b*at(arr,i0+1,j1);
-  return [bil(FRAME.u), bil(FRAME.v)];
-}
-function seed(p) { p.lat = Math.asin(Math.random() * 2 - 1) * 180 / Math.PI; p.lon = Math.random() * 360 - 180; p.age = Math.random() * 60 | 0; }
-for (let n = 0; n < 9000; n++) { const p = {}; seed(p); particles.push(p); }
-
-function stepParticles() {
-  const { ctx, canvas } = wind, W = canvas.width, H = canvas.height;
-  ctx.globalCompositeOperation = 'destination-out';
-  ctx.fillStyle = 'rgba(0,0,0,0.05)'; ctx.fillRect(0, 0, W, H);
-  ctx.globalCompositeOperation = 'source-over';
-  if (!FRAME || !$('lyrWind').checked) { wind.tex.needsUpdate = true; return; }
-  ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(245,248,255,0.9)';
-  ctx.beginPath();
-  const k = 0.012; // degrees per (m/s) per frame
-  for (const p of particles) {
-    const [u, v] = sampleUV(p.lat, p.lon);
-    const x0 = (p.lon + 180) / 360 * W, y0 = (90 - p.lat) / 180 * H;
-    p.lat += v * k; p.lon += u * k / Math.max(Math.cos(p.lat * Math.PI / 180), 0.15);
-    if (p.lon > 180) p.lon -= 360; if (p.lon < -180) p.lon += 360;
-    if (++p.age > 90 || Math.abs(p.lat) > 89) { seed(p); continue; }
-    const x1 = (p.lon + 180) / 360 * W, y1 = (90 - p.lat) / 180 * H;
-    if (Math.abs(x1 - x0) < W / 4) { ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); }
+// Playback: one step lasts step_hours / time-lapse seconds; the wind blends toward the next field meanwhile.
+async function tickPlay(now) {
+  if (!playing || !META) return;
+  const stepMs = META.step_hours / (+$('lapse').value) * 1000;
+  if (!NEXT && !tickPlay.loading) {
+    tickPlay.loading = true;
+    fetchFrame((state.i + 1) % META.labels.length).then(F => { NEXT = F; sampleNext = sampler(F); tickPlay.loading = false; });
   }
-  ctx.stroke();
-  wind.tex.needsUpdate = true;
+  alpha = Math.min(1, (now - stepStart) / stepMs);
+  if (alpha >= 1 && NEXT) { showFrame(NEXT); NEXT = null; sampleNext = null; alpha = 0; stepStart = now; }
 }
 
-// ------------------------------------------------------------------ persistence heat
-async function drawHeat() {
-  const { ctx, canvas } = heat, W = canvas.width, H = canvas.height;
-  ctx.clearRect(0, 0, W, H);
-  if (!$('lyrHeat').checked) { heat.tex.needsUpdate = true; return; }
-  const d = await getJSON(api('persistence', `kind=${$('heatKind').value}&season=${$('heatSeason').value}`));
-  const nlat = d.lat.length, nlon = d.lon.length, cw = W / nlon, ch = H / nlat;
-  const vmax = d.max || 1;
-  for (let i = 0; i < nlat; i++) for (let j = 0; j < nlon; j++) {
-    const f = d.grid[i * nlon + j] / vmax;
-    if (f < 0.15) continue;
-    // Single-hue sequential: one warm hue, magnitude in opacity.
-    ctx.fillStyle = `rgba(245,197,66,${Math.min(0.55, (f - 0.15) / 0.85 * 0.55).toFixed(3)})`;
-    const x = (d.lon[j] + 180) / 360 * W - cw / 2, y = (90 - d.lat[i]) / 180 * H - ch / 2;
-    ctx.fillRect(x, y, cw + 0.5, ch + 0.5);
-  }
-  heat.tex.needsUpdate = true;
-  $('hotspots').innerHTML = d.hotspots.slice(0, 8).map(h =>
-    `<div class="hot" data-lat="${h.lat}" data-lon="${h.lon}">${fmtLat(h.lat)}, ${fmtLon(h.lon)} — ${(h.freq * 100).toFixed(1)}% of steps</div>`).join('');
-  document.querySelectorAll('.hot').forEach(el => el.onclick = () => { flyTo(+el.dataset.lat, +el.dataset.lon); selectCell(+el.dataset.lat, +el.dataset.lon); });
-  $('heatNote').textContent = `${d.note} ${d.steps.toLocaleString()} steps. Brightest = ${(vmax * 100).toFixed(1)}%.`;
-}
-const fmtLat = v => `${Math.abs(v).toFixed(1)}°${v >= 0 ? 'N' : 'S'}`;
-const fmtLon = v => `${Math.abs(v).toFixed(1)}°${v >= 0 ? 'E' : 'W'}`;
-
-// ------------------------------------------------------------------ frame
-async function loadFrame(i) {
-  FRAME = await getJSON(api('frame', `i=${i}`));
-  state.i = i; $('slider').value = i;
-  $('time').textContent = FRAME.label;
-  const show = new Set([...document.querySelectorAll('.kind:checked')].map(e => e.value));
-  const counts = {};
-  for (const k of kinds) {
-    const sel = FRAME.points.filter(p => p.kind === k);
-    counts[k] = sel.length;
-    const pos = new Float32Array(sel.length * 3);
-    sel.forEach((p, n) => { const v = toXYZ(p.lat, p.lon, 1.012); pos.set([v.x, v.y, v.z], n * 3); });
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    pointLayers[k].geometry.dispose(); pointLayers[k].geometry = g; pointLayers[k].userData.rows = sel;
-    pointLayers[k].visible = $('lyrPts').checked && show.has(k);
-  }
-  drawForecast();
-  const c = FRAME.closure;
-  const total = Object.values(counts).reduce((a, b) => a + b, 0);
-  $('stepStats').innerHTML = [
-    ['Stagnation points', total.toLocaleString()],
-    ...kinds.filter(k => counts[k]).map(k => [LABEL(k), counts[k]]),
-    ['Polar caps (N / S)', `${c.cap_north >= 0 ? '+' : ''}${c.cap_north} / ${c.cap_south >= 0 ? '+' : ''}${c.cap_south}`],
-    ['Σ index (winding)', `<span class="badge ${c.winding_sum === 2 ? 'ok' : 'warn'}">${c.winding_sum}</span>`],
-    ['Edge error (flipped edges)', `${c.edge_error} (${c.edge_flips})`],
-  ].map(([a, b]) => `<div class="stat"><span>${a}</span><b>${b}</b></div>`).join('');
-}
-
-// ------------------------------------------------------------------ closure panel
+// ------------------------------------------------------------------ panels
 async function drawClosure() {
-  const d = await getJSON(api('closure'));
-  const m = META.closure;
+  const d = await getJSON(api('closure')), m = META.closure;
   $('closureStats').innerHTML = [
     ['Steps analysed', m.steps.toLocaleString()],
     ['Mean Σ index', m.mean_winding_sum.toFixed(3)],
@@ -320,128 +357,134 @@ async function drawClosure() {
     ['Σ = 2 + edge error, every step', `<span class="badge ${m.identity_holds ? 'ok' : 'warn'}">${m.identity_holds ? 'holds' : 'broken'}</span>`],
     ['Mean points per step', m.mean_points_per_step.toLocaleString()],
   ].map(([a, b]) => `<div class="stat"><span>${a}</span><b>${b}</b></div>`).join('');
-  Plotly.newPlot('closureChart', [
-    { x: d.winding_sum.map((_, n) => n), y: d.winding_sum, text: d.label, type: 'scattergl', mode: 'lines',
-      line: { color: '#3987e5', width: 1 }, name: 'Σ index', hovertemplate: '%{text}<br>Σ index %{y}<extra></extra>' },
-  ], {
-    margin: { l: 28, r: 8, t: 6, b: 22 }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', showlegend: false,
+  Plotly.newPlot('closureChart', [{ x: d.winding_sum.map((_, n) => n), y: d.winding_sum, text: d.label, type: 'scattergl',
+    mode: 'lines', line: { color: '#3987e5', width: 1 }, hovertemplate: '%{text}<br>Σ index %{y}<extra></extra>' }], {
+    margin: { l: 28, r: 8, t: 6, b: 26 }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', showlegend: false,
     font: { family: 'Inter, Arial', size: 10, color: '#c3c2b7' },
     xaxis: { gridcolor: 'rgba(255,255,255,0.06)', title: { text: 'step', standoff: 2 } },
     yaxis: { gridcolor: 'rgba(255,255,255,0.06)', zeroline: false },
     shapes: [{ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 2, y1: 2, line: { color: '#f5c542', width: 1, dash: 'dot' } }],
   }, { displayModeBar: false, responsive: true });
 }
-
-// ------------------------------------------------------------------ location
+async function drawAgreement() {
+  $('agreeBox').style.display = state.body === 'earth' ? 'block' : 'none';
+  if (state.body !== 'earth') return;
+  const a = await getJSON('/api/agreement').catch(() => null);
+  if (!a || !a.common_months.length || Object.keys(a.products).length < 2) { $('agree').innerHTML = 'Waiting for a second reanalysis to finish processing.'; return; }
+  $('agree').innerHTML = `<div class="note" style="margin:0 0 6px">${a.common_months.length} months every product has (${a.common_months[0]}–${a.common_months.at(-1)}).</div>` +
+    Object.values(a.products).map(p => `<div class="stat"><span>${p.label}</span><b>Σ=2 in ${(p.share_exactly_2 * 100).toFixed(1)}% · ${p.mean_points_per_step}/step</b></div>`).join('') +
+    Object.entries(a.pattern_r).map(([k, r]) => `<div class="stat"><span>${k.replaceAll('earth_ncep_', 'NCEP ').replaceAll('earth', 'ERA5')}</span><b>pattern r = ${r.toFixed(2)}</b></div>`).join('') +
+    `<div class="note">${a.note}</div>`;
+}
+async function drawModel() {
+  if (state.planet !== 'earth') { $('model').innerHTML = 'TopoNet is trained on ERA5; switch to Earth · ERA5 to see it.'; return; }
+  const m = await getJSON('/api/model').catch(() => null);
+  if (!m || m.error) { $('model').innerHTML = 'No model trained yet.'; return; }
+  const order = ['persistence', 'climatology', 'logistic', 'vertex-gnn', 'toponet'];
+  $('model').innerHTML = `<div class="note" style="margin:0 0 6px">${m.target}. Test ${m.split.test[0]}–${m.split.test.at(-1)}, base rate ${(m.base_rate * 100).toFixed(1)}%.</div>` +
+    order.filter(k => m.results[k]).map(k => `<div class="stat"><span>${k}</span><b>AP ${m.results[k].avg_precision.toFixed(3)} · AUC ${m.results[k].roc_auc.toFixed(3)}</b></div>`).join('') +
+    `<div class="note">Average precision is the honest score at this base rate. Magenta dots: TopoNet probability ≥ 0.15 on held-out steps.</div>`;
+}
 async function selectCell(lat, lon) {
   $('cell').innerHTML = `Loading ${fmtLat(lat)}, ${fmtLon(lon)}…`;
   const d = await getJSON(api('cell', `lat=${lat.toFixed(2)}&lon=${lon.toFixed(2)}`));
+  const [u, v] = windAt(lat, lon);
   $('cell').innerHTML = `<div class="stat"><span>Location</span><b>${fmtLat(lat)}, ${fmtLon(lon)}</b></div>` +
-    [[`Saddle within ${d.radius_km} km`, d.mean.saddle], [`Node within ${d.radius_km} km`, d.mean.node], [`Focus within ${d.radius_km} km`, d.mean.focus],
-     ['Attracting (convergent)', d.mean.attracting]].map(([a, b]) =>
-      `<div class="stat"><span>${a}</span><b>${(b * 100).toFixed(1)}% of steps</b></div>`).join('') +
-    `<div class="stat"><span>Longest-lived point nearby</span><b>${d.longest_track_h} h</b></div>`;
+    `<div class="stat"><span>Wind now</span><b>${Math.hypot(u, v).toFixed(1)} m/s from ${((Math.atan2(-u, -v) * 180 / Math.PI + 360) % 360).toFixed(0)}°</b></div>` +
+    [['Saddle', d.mean.saddle], ['Node', d.mean.node], ['Focus', d.mean.focus], ['Attracting (convergent)', d.mean.attracting]].map(([a, b]) =>
+      `<div class="stat"><span>${a} within ${d.radius_km} km</span><b>${(b * 100).toFixed(1)}% of steps</b></div>`).join('') +
+    `<div class="stat"><span>Longest-lived point nearby</span><b>${d.longest_track_h.toFixed(0)} h</b></div>`;
   $('cellChart').style.display = 'block';
-  const x = d.series.map(r => r.period);
-  Plotly.newPlot('cellChart', ['saddle', 'node', 'focus'].map(f => ({
-    x, y: d.series.map(r => r[f] * 100), type: 'scatter', mode: 'lines+markers', name: f,
-    line: { color: { saddle: '#d95926', node: '#3987e5', focus: '#199e70' }[f], width: 2 }, marker: { size: 5 },
-    hovertemplate: `%{x} · ${f}: %{y:.1f}%<extra></extra>` })), {
-    margin: { l: 30, r: 8, t: 6, b: 24 }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-    font: { family: 'Inter, Arial', size: 10, color: '#c3c2b7' }, legend: { orientation: 'h', y: 1.2 },
+  Plotly.newPlot('cellChart', ['saddle', 'node', 'focus'].map(f => ({ x: d.series.map(r => r.period), y: d.series.map(r => r[f] * 100),
+    type: 'scatter', mode: 'lines+markers', name: f, line: { color: { saddle: '#d95926', node: '#3987e5', focus: '#199e70' }[f], width: 2 },
+    marker: { size: 5 }, hovertemplate: `%{x} · ${f}: %{y:.1f}%<extra></extra>` })), {
+    margin: { l: 32, r: 8, t: 6, b: 30 }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter, Arial', size: 10, color: '#c3c2b7' }, legend: { orientation: 'h', y: 1.25 },
     yaxis: { title: '% of steps', gridcolor: 'rgba(255,255,255,0.06)' }, xaxis: { gridcolor: 'rgba(255,255,255,0.06)' },
   }, { displayModeBar: false, responsive: true });
 }
-
 function flyTo(lat, lon) {
   controls.autoRotate = false;
-  const target = toXYZ(lat, lon, camera.position.length());
-  const start = camera.position.clone(); let t = 0;
+  const start = camera.position.clone(), target = toXYZ(lat, lon, start.length()); let t = 0;
   const anim = () => { t = Math.min(1, t + 0.04); camera.position.lerpVectors(start, target, t).setLength(start.length()); if (t < 1) requestAnimationFrame(anim); };
   anim();
 }
 
-// ------------------------------------------------------------------ picking
+// ------------------------------------------------------------------ picking and hover readout
 const ray = new THREE.Raycaster(); ray.params.Points.threshold = 0.015;
 const mouse = new THREE.Vector2();
-function pick(ev) {
+function latLonUnder(ev) {
   mouse.set(ev.clientX / innerWidth * 2 - 1, -(ev.clientY / innerHeight) * 2 + 1);
   ray.setFromCamera(mouse, camera);
-  const hits = ray.intersectObjects(Object.values(pointLayers).filter(p => p.visible));
-  return hits[0];
+  const h = ray.intersectObject(globe)[0];
+  if (!h) return null;
+  const p = h.point.clone().normalize();
+  return [Math.asin(p.y) * 180 / Math.PI, Math.atan2(-p.z, p.x) * 180 / Math.PI];
 }
 renderer.domElement.addEventListener('pointermove', ev => {
-  const h = pick(ev), tip = $('tip');
-  if (!h) { tip.style.display = 'none'; return; }
-  const r = h.object.userData.rows[h.index];
-  tip.style.display = 'block'; tip.style.left = ev.clientX + 14 + 'px'; tip.style.top = ev.clientY + 14 + 'px';
-  tip.innerHTML = `<b>${LABEL(r.kind)}</b><br>${fmtLat(r.lat)}, ${fmtLon(r.lon)}<br>strength ${(r.strength * 1e5).toFixed(2)}×10⁻⁵ s⁻¹` +
-    `<br>divergence ${(r.divergence * 1e5).toFixed(2)}×10⁻⁵ s⁻¹<br>persisting ${r.age_h} h (track ${r.track})`;
+  const tip = $('tip');
+  mouse.set(ev.clientX / innerWidth * 2 - 1, -(ev.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const hit = ray.intersectObjects(Object.values(pointLayers).filter(p => p.visible))[0];
+  const ll = latLonUnder(ev);
+  if (!hit && !ll) { tip.style.display = 'none'; return; }
+  let html = '';
+  if (hit) { const r = hit.object.userData.rows[hit.index];
+    html += `<b>${LABEL(r.kind)}</b> · ${fmtLat(r.lat)}, ${fmtLon(r.lon)}<br>strength ${(r.strength * 1e5).toFixed(2)}×10⁻⁵ s⁻¹, divergence ${(r.divergence * 1e5).toFixed(2)}×10⁻⁵ s⁻¹<br>persisting ${r.age_h} h (track ${r.track})<br>`; }
+  if (ll && FRAME) { const [u, v] = windAt(ll[0], ll[1]);
+    html += `${hit ? '' : fmtLat(ll[0]) + ', ' + fmtLon(ll[1]) + '<br>'}wind ${Math.hypot(u, v).toFixed(1)} m/s from ${((Math.atan2(-u, -v) * 180 / Math.PI + 360) % 360).toFixed(0)}° (u ${u.toFixed(1)}, v ${v.toFixed(1)})`; }
+  tip.style.display = 'block'; tip.style.left = ev.clientX + 14 + 'px'; tip.style.top = ev.clientY + 14 + 'px'; tip.innerHTML = html;
 });
+renderer.domElement.addEventListener('pointerleave', () => { $('tip').style.display = 'none'; });
 let downAt = null;
 renderer.domElement.addEventListener('pointerdown', ev => { downAt = [ev.clientX, ev.clientY]; controls.autoRotate = false; });
 renderer.domElement.addEventListener('pointerup', ev => {
   if (!downAt || Math.hypot(ev.clientX - downAt[0], ev.clientY - downAt[1]) > 4) return;
-  mouse.set(ev.clientX / innerWidth * 2 - 1, -(ev.clientY / innerHeight) * 2 + 1);
-  ray.setFromCamera(mouse, camera);
-  const h = ray.intersectObject(earth)[0];
-  if (!h) return;
-  const p = h.point.clone().normalize();
-  selectCell(Math.asin(p.y) * 180 / Math.PI, Math.atan2(-p.z, p.x) * 180 / Math.PI);
+  const ll = latLonUnder(ev); if (ll) selectCell(ll[0], ll[1]);
 });
 
 // ------------------------------------------------------------------ controls
-$('slider').oninput = e => loadFrame(+e.target.value);
-$('play').onclick = () => {
-  playing = !playing; $('play').textContent = playing ? '❚❚ Pause' : '▶ Play';
-  clearInterval(timer);
-  if (playing) timer = setInterval(() => loadFrame((state.i + 1) % META.labels.length), +$('speed').value);
-};
-$('speed').onchange = () => { if (playing) { $('play').click(); $('play').click(); } };
+let sliderTimer = null;
+$('slider').oninput = e => { clearTimeout(sliderTimer); const i = +e.target.value;
+  $('time').textContent = META.labels[i]; sliderTimer = setTimeout(() => goTo(i), 60); };
+$('jump').onchange = e => { if (e.target.value !== '') goTo(+e.target.value); };
+$('play').onclick = () => { playing = !playing; $('play').textContent = playing ? '❚❚ Pause' : '▶ Play'; stepStart = performance.now(); NEXT = null; sampleNext = null; alpha = 0; };
 ['heatKind', 'heatSeason', 'lyrHeat'].forEach(id => $(id).onchange = drawHeat);
-['lyrPts', ...[...document.querySelectorAll('.kind')].map(e => e)].forEach(el => {
-  (typeof el === 'string' ? $(el) : el).onchange = () => loadFrame(state.i);
-});
+$('lyrFc').onchange = drawForecast;
+$('lyrWind').onchange = clearTrails;
+['lyrPts', ...document.querySelectorAll('.kind')].forEach(el => (typeof el === 'string' ? $(el) : el).onchange = () => FRAME && showFrame(FRAME));
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
-// ------------------------------------------------------------------ go
-function loop() { controls.update(); stepParticles(); renderer.render(scene, camera); requestAnimationFrame(loop); }
 async function loadPlanet(planet) {
-  state.planet = planet; $('planet').value = planet;
   if (playing) $('play').click();
+  state.planet = planet; $('planet').value = planet;
   META = await getJSON(api('meta'));
-  setSurface(planet);
+  state.body = META.body;
+  loader.load(TEXTURES[state.body], t => { t.colorSpace = THREE.SRGBColorSpace; surfaceMat.map = t;
+    surfaceMat.bumpMap = state.body === 'earth' ? earthBump : null; surfaceMat.bumpScale = 0.012; surfaceMat.needsUpdate = true; });
+  glow.material.uniforms.tint.value.set(state.body === 'earth' ? 0x5999ff : 0xd9874c);
   $('slider').max = META.labels.length - 1;
   $('heatSeason').innerHTML = '<option value="all">All seasons</option>' + META.seasons.map(s => `<option>${s}</option>`).join('');
-  const extra = planet === 'mars' ? ' Mars textures: Solar System Scope (CC BY 4.0).' : ' Earth imagery: NASA Blue Marble.';
-  $('source').innerHTML = `${META.source.name}, ${META.resolution} grid, ${META.periods[0]} to ${META.periods.at(-1)} ` +
-    `(${META.periods.length} periods, ${META.labels.length.toLocaleString()} steps). ${META.source.attribution}. ` +
-    `Licence: ${META.source.license}.${extra}`;
+  $('jump').innerHTML = '<option value="">Jump to…</option>' + META.periods.map(p => `<option value="${META.period_start[p]}">${p}</option>`).join('');
+  const imagery = state.body === 'mars' ? 'Mars surface map: Solar System Scope (CC BY 4.0).' : 'Earth imagery: NASA Blue Marble.';
+  $('source').innerHTML = `<b>${META.source.name}</b>, ${META.resolution} grid, ${META.periods.length} periods, ` +
+    `${META.labels.length.toLocaleString()} steps of ${META.step_hours.toFixed(2)} h. ${META.source.attribution}. Licence: ${META.source.license}. ${imagery}`;
   $('cell').innerHTML = 'Click anywhere on the globe.'; $('cellChart').style.display = 'none';
-  wind.ctx.clearRect(0, 0, wind.canvas.width, wind.canvas.height);
-  await loadFrame(0);
-  await Promise.all([drawHeat(), drawClosure(), drawModel()]);
-}
-$('lyrFc').onchange = drawForecast;
-async function drawModel() {
-  const m = await getJSON('/api/model').catch(() => null);
-  if (state.planet !== 'earth') { $('model').innerHTML = 'The TopoNet forecast is trained on Earth (ERA5). A Mars model needs more Mars years than one.'; return; }
-  if (!m || m.error) { $('model').innerHTML = 'No model trained yet.'; return; }
-  const order = ['persistence', 'climatology', 'logistic', 'vertex-gnn', 'toponet'];
-  $('model').innerHTML = `<div class="note" style="margin:0 0 6px">${m.target}. Test ${m.split.test[0]}–${m.split.test.at(-1)}, ` +
-    `${m.test_steps} steps × ${m.vertices.toLocaleString()} vertices, base rate ${(m.base_rate * 100).toFixed(1)}%.</div>` +
-    order.filter(k => m.results[k]).map(k => `<div class="stat"><span>${k}</span><b>AP ${m.results[k].avg_precision.toFixed(3)} · AUC ${m.results[k].roc_auc.toFixed(3)}</b></div>`).join('') +
-    `<div class="note">Average precision is the honest score at this base rate. Magenta dots on the globe are TopoNet's probability (≥ 0.15) on held-out steps.</div>`;
+  await goTo(0);
+  await Promise.all([drawHeat(), drawClosure(), drawModel(), drawAgreement()]);
 }
 $('planet').onchange = e => loadPlanet(e.target.value).catch(err => alert(err.message));
+
+function loop(now) { controls.update(); tickPlay(now); stepParticles(now); renderer.render(scene, camera); requestAnimationFrame(loop); }
 (async () => {
   try {
     const avail = await getJSON('/api/planets');
-    for (const opt of $('planet').options) if (!avail[opt.value]?.periods) { opt.disabled = true; opt.text += ' (processing…)'; }
+    $('planet').innerHTML = Object.entries(avail).map(([k, v]) =>
+      `<option value="${k}" ${v.periods ? '' : 'disabled'}>${v.body === 'earth' ? 'Earth' : 'Mars'} · ${v.label}${v.periods ? ` (${v.periods} periods)` : ' (processing…)'}</option>`).join('');
     if (!avail[state.planet]?.periods) state.planet = 'earth';
     await loadPlanet(state.planet);
     $('loading').remove();
-    loop();
+    requestAnimationFrame(loop);
   } catch (e) { $('loading').textContent = 'Could not load: ' + e.message; }
 })();
 </script>

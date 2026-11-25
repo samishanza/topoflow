@@ -123,6 +123,23 @@ SOURCES: dict[str, SourceEntry] = {
                  "because the CDS queue held global monthly requests for over an hour (tested 2026-11-25).",
         ),
         SourceEntry(
+            "ncep_r1", "NCEP/NCAR Reanalysis 1, 10 m wind (T62 Gaussian, 6-hourly)", "reanalysis", 0,
+            "https://downloads.psl.noaa.gov/Datasets/ncep.reanalysis/surface_gauss/",
+            "Freely available from NOAA PSL; acknowledgement requested",
+            "NCEP/NCAR Reanalysis data provided by the NOAA PSL, Boulder, Colorado, USA, from their website at https://psl.noaa.gov",
+            "https://psl.noaa.gov/data/gridded/data.ncep.reanalysis.html", "2026-11-25",
+            note="An independent reanalysis (different model, assimilation and grid, about 1.9 deg) for checking which "
+                 "stagnation points are robust across products. Yearly files, about 50 MB per variable.",
+        ),
+        SourceEntry(
+            "ncep_r2", "NCEP-DOE Reanalysis 2, 10 m wind (T62 Gaussian, 6-hourly)", "reanalysis", 0,
+            "https://downloads.psl.noaa.gov/Datasets/ncep.reanalysis2/gaussian_grid/",
+            "Freely available from NOAA PSL; acknowledgement requested",
+            "NCEP-DOE Reanalysis 2 data provided by the NOAA PSL, Boulder, Colorado, USA, from their website at https://psl.noaa.gov",
+            "https://psl.noaa.gov/data/gridded/data.ncep.reanalysis2.html", "2026-11-25",
+            note="R1 with known errors fixed. A third product for agreement checks.",
+        ),
+        SourceEntry(
             "gee_tropomi", "Sentinel-5P TROPOMI XCH4 L3 via Google Earth Engine", "satellite", 1,
             "https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S5P_OFFL_L3_CH4",
             "Copernicus Sentinel data terms (open); Earth Engine is free for non-commercial use only",
