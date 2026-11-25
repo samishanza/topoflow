@@ -401,4 +401,5 @@ def update_figure(time_idx):
 # Run app
 # -----------------------------
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Never debug=True: the Werkzeug debugger executes code from the browser.
+    app.run(debug=False)

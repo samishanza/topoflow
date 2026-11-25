@@ -137,6 +137,7 @@ const COLORS = { saddle: '#d95926', attracting_node: '#3987e5', repelling_node: 
                  attracting_focus: '#199e70', repelling_focus: '#199e70', center: '#c3c2b7' };
 const LABEL = k => k.replace('_', ' ');
 const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtLat = v => `${Math.abs(v).toFixed(1)}°${v >= 0 ? 'N' : 'S'}`;
 const fmtLon = v => `${Math.abs(v).toFixed(1)}°${v >= 0 ? 'E' : 'W'}`;
 async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(url + ' ' + r.status); return r.json(); }
@@ -371,8 +372,8 @@ async function drawAgreement() {
   if (state.body !== 'earth') return;
   const a = await getJSON('/api/agreement').catch(() => null);
   if (!a || !a.common_months.length || Object.keys(a.products).length < 2) { $('agree').innerHTML = 'Waiting for a second reanalysis to finish processing.'; return; }
-  $('agree').innerHTML = `<div class="note" style="margin:0 0 6px">${a.common_months.length} months every product has (${a.common_months[0]}–${a.common_months.at(-1)}).</div>` +
-    Object.values(a.products).map(p => `<div class="stat"><span>${p.label}</span><b>Σ=2 in ${(p.share_exactly_2 * 100).toFixed(1)}% · ${p.mean_points_per_step}/step</b></div>`).join('') +
+  $('agree').innerHTML = `<div class="note" style="margin:0 0 6px">${a.common_months.length} months every product has (${esc(a.common_months[0])}–${esc(a.common_months.at(-1))}).</div>` +
+    Object.values(a.products).map(p => `<div class="stat"><span>${esc(p.label)}</span><b>Σ=2 in ${(p.share_exactly_2 * 100).toFixed(1)}% · ${p.mean_points_per_step}/step</b></div>`).join('') +
     Object.entries(a.pattern_r).map(([k, r]) => `<div class="stat"><span>${k.replaceAll('earth_ncep_', 'NCEP ').replaceAll('earth', 'ERA5')}</span><b>pattern r = ${r.toFixed(2)}</b></div>`).join('') +
     `<div class="note">${a.note}</div>`;
 }
@@ -381,7 +382,7 @@ async function drawModel() {
   const m = await getJSON('/api/model').catch(() => null);
   if (!m || m.error) { $('model').innerHTML = 'No model trained yet.'; return; }
   const order = ['persistence', 'climatology', 'logistic', 'vertex-gnn', 'toponet'];
-  $('model').innerHTML = `<div class="note" style="margin:0 0 6px">${m.target}. Test ${m.split.test[0]}–${m.split.test.at(-1)}, base rate ${(m.base_rate * 100).toFixed(1)}%.</div>` +
+  $('model').innerHTML = `<div class="note" style="margin:0 0 6px">${esc(m.target)}. Test ${esc(m.split.test[0])}–${esc(m.split.test.at(-1))}, base rate ${(m.base_rate * 100).toFixed(1)}%.</div>` +
     order.filter(k => m.results[k]).map(k => `<div class="stat"><span>${k}</span><b>AP ${m.results[k].avg_precision.toFixed(3)} · AUC ${m.results[k].roc_auc.toFixed(3)}</b></div>`).join('') +
     `<div class="note">Average precision is the honest score at this base rate. Magenta dots: TopoNet probability ≥ 0.15 on held-out steps.</div>`;
 }
@@ -430,7 +431,7 @@ renderer.domElement.addEventListener('pointermove', ev => {
   if (!hit && !ll) { tip.style.display = 'none'; return; }
   let html = '';
   if (hit) { const r = hit.object.userData.rows[hit.index];
-    html += `<b>${LABEL(r.kind)}</b> · ${fmtLat(r.lat)}, ${fmtLon(r.lon)}<br>strength ${(r.strength * 1e5).toFixed(2)}×10⁻⁵ s⁻¹, divergence ${(r.divergence * 1e5).toFixed(2)}×10⁻⁵ s⁻¹<br>persisting ${r.age_h} h (track ${r.track})<br>`; }
+    html += `<b>${esc(LABEL(r.kind))}</b> · ${fmtLat(r.lat)}, ${fmtLon(r.lon)}<br>strength ${(r.strength * 1e5).toFixed(2)}×10⁻⁵ s⁻¹, divergence ${(r.divergence * 1e5).toFixed(2)}×10⁻⁵ s⁻¹<br>persisting ${r.age_h} h (track ${r.track})<br>`; }
   if (ll && FRAME) { const [u, v] = windAt(ll[0], ll[1]);
     html += `${hit ? '' : fmtLat(ll[0]) + ', ' + fmtLon(ll[1]) + '<br>'}wind ${Math.hypot(u, v).toFixed(1)} m/s from ${((Math.atan2(-u, -v) * 180 / Math.PI + 360) % 360).toFixed(0)}° (u ${u.toFixed(1)}, v ${v.toFixed(1)})`; }
   tip.style.display = 'block'; tip.style.left = ev.clientX + 14 + 'px'; tip.style.top = ev.clientY + 14 + 'px'; tip.innerHTML = html;
@@ -464,11 +465,11 @@ async function loadPlanet(planet) {
     surfaceMat.bumpMap = state.body === 'earth' ? earthBump : null; surfaceMat.bumpScale = 0.012; surfaceMat.needsUpdate = true; });
   glow.material.uniforms.tint.value.set(state.body === 'earth' ? 0x5999ff : 0xd9874c);
   $('slider').max = META.labels.length - 1;
-  $('heatSeason').innerHTML = '<option value="all">All seasons</option>' + META.seasons.map(s => `<option>${s}</option>`).join('');
-  $('jump').innerHTML = '<option value="">Jump to…</option>' + META.periods.map(p => `<option value="${META.period_start[p]}">${p}</option>`).join('');
+  $('heatSeason').innerHTML = '<option value="all">All seasons</option>' + META.seasons.map(s => `<option>${esc(s)}</option>`).join('');
+  $('jump').innerHTML = '<option value="">Jump to…</option>' + META.periods.map(p => `<option value="${+META.period_start[p]}">${esc(p)}</option>`).join('');
   const imagery = state.body === 'mars' ? 'Mars surface map: Solar System Scope (CC BY 4.0).' : 'Earth imagery: NASA Blue Marble.';
-  $('source').innerHTML = `<b>${META.source.name}</b>, ${META.resolution} grid, ${META.periods.length} periods, ` +
-    `${META.labels.length.toLocaleString()} steps of ${META.step_hours.toFixed(2)} h. ${META.source.attribution}. Licence: ${META.source.license}. ${imagery}`;
+  $('source').innerHTML = `<b>${esc(META.source.name)}</b>, ${esc(META.resolution)} grid, ${META.periods.length} periods, ` +
+    `${META.labels.length.toLocaleString()} steps of ${META.step_hours.toFixed(2)} h. ${esc(META.source.attribution)}. Licence: ${esc(META.source.license)}. ${imagery}`;
   $('cell').innerHTML = 'Click anywhere on the globe.'; $('cellChart').style.display = 'none';
   await goTo(0);
   await Promise.all([drawHeat(), drawClosure(), drawModel(), drawAgreement()]);
@@ -480,7 +481,7 @@ function loop(now) { controls.update(); tickPlay(now); stepParticles(now); rende
   try {
     const avail = await getJSON('/api/planets');
     $('planet').innerHTML = Object.entries(avail).map(([k, v]) =>
-      `<option value="${k}" ${v.periods ? '' : 'disabled'}>${v.body === 'earth' ? 'Earth' : 'Mars'} · ${v.label}${v.periods ? ` (${v.periods} periods)` : ' (processing…)'}</option>`).join('');
+      `<option value="${esc(k)}" ${v.periods ? '' : 'disabled'}>${v.body === 'earth' ? 'Earth' : 'Mars'} · ${esc(v.label)}${v.periods ? ` (${v.periods} periods)` : ' (processing…)'}</option>`).join('');
     if (!avail[state.planet]?.periods) state.planet = 'earth';
     await loadPlanet(state.planet);
     $('loading').remove();

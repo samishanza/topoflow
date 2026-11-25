@@ -43,7 +43,7 @@ def metrics(y: np.ndarray, p: np.ndarray) -> dict:
 
 
 def load(files):
-    d = [np.load(f, allow_pickle=True) for f in files]
+    d = [np.load(f) for f in files]
     return (np.concatenate([x["X_e"] for x in d]).astype("float32"), np.concatenate([x["X_v"] for x in d]).astype("float32"),
             np.concatenate([x["y"] for x in d]), np.concatenate([x["t"] for x in d]))
 

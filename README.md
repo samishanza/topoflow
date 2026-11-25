@@ -23,7 +23,7 @@ Research prototype: no facility emission estimates, compliance judgements or hea
 git clone https://github.com/samishanza/topoflow.git && cd topoflow
 python3 -m pip install -e ".[dev]"            # numpy, xarray, netCDF4, pandas, shapely, pydantic, dash, plotly, pytest
 
-python3 -m pytest                              # 42 tests, no network
+python3 -m pytest                              # 63 tests, no network
 python3 -m topoflow collect --mode replay      # rebuild the recorded Permian run offline
 python3 -m app.dashboard                       # http://127.0.0.1:8050
 ```
@@ -62,6 +62,24 @@ python3 -m topoflow decide <id> reject --by "Your Name" --reason "BLH explains i
 The review agent uses `claude-opus-5-5` at effort `high`, with server-side refusal fallback enabled. Each review costs
 API tokens.
 
+## The globe: stagnation points over whole planets
+
+```bash
+python3 scripts/fetch_era5_arco.py --start 2019-01 --end 2019-12   # stream ERA5 from ARCO-ERA5 (public, no key)
+python3 -m topoflow.climatology process --watch                    # gate, analyse, track, store each month
+python3 scripts/fetch_ncep.py --product r1 --years 2019             # optional: NCEP R1 / R2 for cross-product checks
+python3 -m topoflow.mars --year 34                                  # optional: Mars from OpenMARS
+python3 -m app.globe_server                                         # http://127.0.0.1:8060
+```
+
+Every 6-hourly step is analysed over the whole sphere (poles included): stagnation points are located on the
+piecewise-linear wind, classified by the Jacobian (saddle, attracting/repelling node and focus, centre), and the
+Poincaré-Hopf closure is checked. The identity `sum of indices = 2 + edge_error` holds on every step; `edge_error`
+counts the grid edges where the wind turns too sharply between neighbouring points for the grid to resolve.
+Wind particles on the globe are advected by the real field of the shown step at true speed times a stated time-lapse.
+`python3 -m topoflow.tdl.train` trains the simplicial network (TopoNet) against persistence, climatology, logistic and
+vertex-only baselines. First results: [docs/research/2026-11-25-closure-mars-tdl-first-results.md](docs/research/2026-11-25-closure-mars-tdl-first-results.md).
+
 ## What a run contains
 
 `data/runs/<run_id>/` holds `fields.nc` (every admitted grid, the chosen one and its alternatives), `points.geojson`
@@ -79,6 +97,21 @@ Licences, test status and coverage: [docs/research/2026-11-25-ch4-wind-datasets.
 
 Carbon Mapper data is non-commercial and share-alike, and Open-Meteo's free API and Earth Engine are non-commercial.
 This repo is private research; re-read those terms before making it public or using it commercially.
+
+## Security notes
+
+- Both servers (`app.dashboard`, `app.globe_server`) bind to `127.0.0.1` and run without debug mode. They read local
+  files only and fetch nothing from the browser's requests. Don't expose them on a public interface without a
+  production WSGI server in front.
+- Keys live in `.env` (gitignored) or the providers' own config files (`~/.cdsapirc`); none are read from the repo.
+- Text inside downloaded files is treated as data. The review agent is told never to follow it, and a watchdog flags
+  instruction-like text.
+- Dependency floors in `pyproject.toml` include fixes for every advisory `pip-audit` reported on 2026-11-25. Run
+  `pip-audit` before releasing. Report vulnerabilities through GitHub's private security advisories on this repo.
+
+## Third-party data
+
+See [NOTICE.md](NOTICE.md) for the licence and attribution of every bundled file and every source fetched at run time.
 
 ## Join the workflow (Claude Code)
 

@@ -103,7 +103,7 @@ def forecast_for(key) -> list | None:
         return None
     mtime = f.stat().st_mtime
     if _forecast.get("mtime") != mtime:
-        d = np.load(f, allow_pickle=True)
+        d = np.load(f)  # never allow_pickle: a crafted .npz could run code
         _forecast.update(mtime=mtime, t=pd.DatetimeIndex(d["t"]), lat=d["lat"], lon=d["lon"], p=d["toponet"])
     try:
         k = _forecast["t"].get_loc(pd.Timestamp(key))
@@ -130,6 +130,18 @@ def create_app() -> Flask:
     @app.errorhandler(LookupError)
     def missing(exc):
         return jsonify({"error": str(exc)}), 404
+
+    @app.errorhandler(ValueError)
+    def bad_request(exc):
+        return jsonify({"error": "bad request parameter"}), 400
+
+    @app.after_request
+    def headers(resp):
+        # The page loads three.js, Plotly and fonts from fixed CDNs and talks only to this server.
+        resp.headers["X-Content-Type-Options"] = "nosniff"
+        resp.headers["X-Frame-Options"] = "DENY"
+        resp.headers["Referrer-Policy"] = "no-referrer"
+        return resp
 
     @app.get("/")
     def index():
@@ -253,6 +265,8 @@ def create_app() -> Flask:
     def persistence():
         s = store_for(request.args.get("planet", "earth"))
         kind, season = request.args.get("kind", "all"), request.args.get("season", "all")
+        if season != "all" and season not in PLANETS[s.planet]["seasons"]:
+            raise ValueError("unknown season")
         occ, steps, lat, lon = s.occupancy(season)
         if occ is None:
             return jsonify({"error": f"no periods in season {season}"}), 404
@@ -288,8 +302,10 @@ def create_app() -> Flask:
         planet = request.args.get("planet", "earth")
         s = store_for(planet)
         R = PLANETS[planet]["radius_km"]
-        lat, lon = float(request.args["lat"]), float(request.args["lon"])
+        lat, lon = float(request.args.get("lat", "nan")), float(request.args.get("lon", "nan"))
         radius_km = float(request.args.get("radius_km", 250 if planet == "earth" else 400))
+        if not (-90 <= lat <= 90 and -180 <= lon <= 360 and 0 < radius_km <= 2000):
+            raise ValueError("lat, lon or radius out of range")
         rows = []
         for m in s.periods:
             p = s.points(m)
