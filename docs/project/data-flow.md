@@ -52,3 +52,10 @@ nodes, 5 repelling foci), found in 20 of the 28 time steps.
 Carbon Mapper plumes admitted; ERA5 vs POWER 0.74 m/s, r = 0.52 (pass). CAMS methane failed on Open-Meteo's
 per-minute limit because the fetcher tracked the two Open-Meteo hosts separately. Fixed (budgets are per provider,
 per-minute 429s wait and retry, record mode resumes); see the rerun in the plan's Handoffs.
+
+**Global rerun, 5 degrees, record mode (resumable), 2025-07-01..07.** CAMS `ok` after the fix (30 calls, 11.7 MB). Every
+cross-check that can run passes: surface CH4 regional mean 2,044 ppb vs NOAA 1,927 ppb (1.061x). 7,404 critical points
+over 28 time steps (3,676 saddles, 1,466 attracting foci, 1,314 repelling foci, 519 attracting nodes, 274 repelling
+nodes, 155 centres). Every kind sits above the global mean CH4 (attracting nodes +157 ppb, repelling nodes +145 ppb,
+saddles +101 ppb), which mostly reflects that the points are over land rather than any convergence effect. That is
+why D12 must define a null model before this is read as a result.

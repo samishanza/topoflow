@@ -1,6 +1,6 @@
 # Plan: multi-source collection behind a deterministic gate
 
-- **Status:** In progress (T1-T9 done; T10-T14 open)
+- **Status:** In progress (T1-T10 done; T11-T14 open)
 - **Lead:** session on `main`
 - **Shared-contract owner:** session on `main`
 - **Baseline commit:** the commit that adds this file
@@ -43,7 +43,7 @@
 | T7 | Reconcile, derive, topology, cross-checks, store | `topoflow/derive.py`, `topology.py`, `crosschecks.py`, `store.py` | synthetic run finds the planted points | Done |
 | T8 | Claude review agent and attributed decisions | `topoflow/review.py`, `topoflow/cli.py` | `tests/test_review.py` (stub client) | Done; not yet run against the live API |
 | T9 | Dashboard over a run, rendered and checked | `app/dashboard.py` | screenshots of CH4 and divergence layers | Done |
-| T10 | Global run with CAMS after the rate-budget fix | none (run only) | CAMS `ok` in the global manifest | See Handoffs |
+| T10 | Global run with CAMS after the rate-budget fix | none (run only) | CAMS `ok` in the global manifest | Done |
 | T11 | Earth Engine TROPOMI live test (D13) | `topoflow/sources/keyed.py` | `ch4.column_ppb` observed for the Permian week | Blocked on a registered Cloud project |
 | T12 | CAMS EAC4 via ADS for pre-2025 windows (D14) | new adapter + registry entry | a 2023 run with surface CH4 | Not started |
 | T13 | Hypothesis design for CH4 at critical points (D12) | `docs/research/` | written test plan before new data | Not started |
