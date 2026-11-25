@@ -113,6 +113,16 @@ SOURCES: dict[str, SourceEntry] = {
             note="Native u10/v10 at 0.25 degree, no conversion needed. Requests queue; a week of a region takes minutes.",
         ),
         SourceEntry(
+            "arco_era5", "ERA5 via ARCO-ERA5 (Google Cloud public dataset)", "reanalysis", 0,
+            "https://storage.googleapis.com/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/",
+            "CC BY 4.0 (ERA5, Copernicus licence); hosted as a Google Cloud public dataset",
+            "Contains modified Copernicus Climate Change Service information (ERA5), via ARCO-ERA5 (Google Research)",
+            "https://cds.climate.copernicus.eu/how-to-api",
+            "ERA5 licence verified 2026-11-25; the ARCO host's own terms page not read",
+            note="One global hour per chunk at 0.25 deg, read anonymously over HTTPS. Used for the 2010-2024 climatology "
+                 "because the CDS queue held global monthly requests for over an hour (tested 2026-11-25).",
+        ),
+        SourceEntry(
             "gee_tropomi", "Sentinel-5P TROPOMI XCH4 L3 via Google Earth Engine", "satellite", 1,
             "https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S5P_OFFL_L3_CH4",
             "Copernicus Sentinel data terms (open); Earth Engine is free for non-commercial use only",

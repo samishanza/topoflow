@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TopoFlow Globe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #05070d; --panel: rgba(14, 18, 28, 0.82); --rule: rgba(255,255,255,0.08);
+    --ink: #f0efec; --ink2: #c3c2b7; --muted: #8a8984;
+    /* Categorical slots 1-3, dark-mode steps, validated all-pairs (CVD dE 9.4, normal 20.9, all >= 3:1). */
+    --node: #3987e5; --saddle: #d95926; --focus: #199e70;
+    --heat: #f5c542; --good: #0ca30c; --bad: #e66767;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: Inter, Arial, sans-serif; overflow: hidden; }
+  #globe { position: fixed; inset: 0; }
+  .panel { position: fixed; background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--rule); border-radius: 14px; padding: 14px 16px; }
+  #left { top: 16px; left: 16px; width: 300px; max-height: calc(100vh - 140px); overflow-y: auto; }
+  #right { top: 16px; right: 16px; width: 360px; max-height: calc(100vh - 140px); overflow-y: auto; }
+  #bottom { left: 16px; right: 16px; bottom: 16px; display: flex; gap: 14px; align-items: center; padding: 10px 16px; }
+  h1 { font-size: 20px; margin: 0 0 2px; font-weight: 700; letter-spacing: 0.2px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin: 18px 0 8px; font-weight: 600; }
+  .sub { color: var(--ink2); font-size: 12px; line-height: 1.45; }
+  label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink2); margin: 5px 0; cursor: pointer; }
+  select, button { background: rgba(255,255,255,0.06); color: var(--ink); border: 1px solid var(--rule); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 13px; }
+  button { cursor: pointer; }
+  button:hover { background: rgba(255,255,255,0.12); }
+  input[type=range] { flex: 1; accent-color: var(--heat); }
+  .swatch { width: 12px; height: 12px; display: inline-block; flex: none; }
+  .stat { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--rule); }
+  .stat b { font-weight: 600; color: var(--ink); }
+  .stat span { color: var(--ink2); }
+  .badge { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+  .ok { background: rgba(12,163,12,0.18); color: #6ee06e; }
+  .warn { background: rgba(230,103,103,0.18); color: #ffaaaa; }
+  #time { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 170px; }
+  #tip { position: fixed; pointer-events: none; background: rgba(8,10,16,0.92); border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; font-size: 12px; display: none; max-width: 260px; line-height: 1.45; }
+  .hot { cursor: pointer; font-size: 12px; color: var(--ink2); padding: 3px 0; }
+  .hot:hover { color: var(--ink); }
+  .chart { width: 100%; height: 150px; }
+  .note { font-size: 11px; color: var(--muted); line-height: 1.4; margin-top: 6px; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; color: var(--ink2); font-size: 14px; }
+  @media (max-width: 900px) { #right { display: none; } #left { width: calc(100vw - 32px); max-height: 40vh; } }
+</style>
+</head>
+<body>
+<div id="globe"></div>
+<div id="loading">Loading the climatology…</div>
+
+<div id="left" class="panel">
+  <h1>TopoFlow</h1>
+  <div class="sub">Atmospheric stagnation points on the whole Earth: ERA5 10 m wind, classified by the Jacobian and checked against the Poincaré–Hopf theorem every 6 hours.</div>
+
+  <h2>Planet</h2>
+  <select id="planet"><option value="earth">Earth (ERA5)</option><option value="mars" disabled>Mars (OpenMARS, coming)</option></select>
+
+  <h2>Layers</h2>
+  <label><input type="checkbox" id="lyrWind" checked> Wind particles (10 m)</label>
+  <label><input type="checkbox" id="lyrPts" checked> Stagnation points (this step)</label>
+  <label><input type="checkbox" id="lyrHeat" checked> Persistence (all steps)</label>
+  <div style="display:flex; gap:8px; margin-top:6px">
+    <select id="heatKind">
+      <option value="all">All kinds</option><option value="saddle">Saddles</option>
+      <option value="node">Nodes</option><option value="focus">Foci</option>
+      <option value="attracting">Attracting (convergent)</option>
+      <option value="attracting_node">Attracting nodes</option><option value="attracting_focus">Attracting foci</option>
+    </select>
+    <select id="heatSeason"><option value="all">All seasons</option><option>DJF</option><option>MAM</option><option>JJA</option><option>SON</option></select>
+  </div>
+
+  <h2>Stagnation kinds</h2>
+  <label><input type="checkbox" class="kind" value="saddle" checked><span class="swatch" style="background:var(--saddle); transform:rotate(45deg); width:10px;height:10px"></span> Saddle (index −1)</label>
+  <label><input type="checkbox" class="kind" value="attracting_node" checked><span class="swatch" style="background:var(--node); border-radius:50%"></span> Attracting node (+1)</label>
+  <label><input type="checkbox" class="kind" value="repelling_node" checked><span class="swatch" style="border:2px solid var(--node); border-radius:50%"></span> Repelling node (+1)</label>
+  <label><input type="checkbox" class="kind" value="attracting_focus" checked><span class="swatch" style="background:var(--focus); transform:rotate(45deg); border-radius:2px"></span> Attracting focus (+1)</label>
+  <label><input type="checkbox" class="kind" value="repelling_focus" checked><span class="swatch" style="border:2px solid var(--focus); transform:rotate(45deg)"></span> Repelling focus (+1)</label>
+  <label><input type="checkbox" class="kind" value="center" checked><span class="swatch" style="border:2px solid var(--ink2); border-radius:50%"></span> Center (+1)</label>
+
+  <h2>Persistence hotspots</h2>
+  <div id="hotspots" class="sub"></div>
+  <div class="note" id="heatNote"></div>
+</div>
+
+<div id="right" class="panel">
+  <h2 style="margin-top:0">This step</h2>
+  <div id="stepStats"></div>
+  <h2>Poincaré–Hopf closure</h2>
+  <div id="closureStats"></div>
+  <div id="closureChart" class="chart"></div>
+  <div class="note">On a sphere the indices of all stagnation points must sum to χ(S²) = 2. Every step satisfies <i>winding sum = 2 + edge error</i>: each departure from 2 is a grid edge where the wind turns too sharply for the grid to read.</div>
+  <h2>Selected location</h2>
+  <div id="cell" class="sub">Click anywhere on the globe.</div>
+  <div id="cellChart" class="chart" style="display:none"></div>
+  <h2>Source</h2>
+  <div id="source" class="note"></div>
+</div>
+
+<div id="bottom" class="panel">
+  <button id="play">▶ Play</button>
+  <span id="time">—</span>
+  <input type="range" id="slider" min="0" max="0" value="0">
+  <select id="speed"><option value="600">1×</option><option value="250" selected>2×</option><option value="90">5×</option></select>
+</div>
+<div id="tip"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const IMG = 'https://unpkg.com/three-globe@2.31.1/example/img/';
+const COLORS = { saddle: '#d95926', attracting_node: '#3987e5', repelling_node: '#3987e5',
+                 attracting_focus: '#199e70', repelling_focus: '#199e70', center: '#c3c2b7' };
+const LABEL = k => k.replace('_', ' ');
+const $ = id => document.getElementById(id);
+
+// ------------------------------------------------------------------ scene
+const host = $('globe');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+host.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(0, 0.6, 3.4);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.minDistance = 1.35; controls.maxDistance = 8; controls.rotateSpeed = 0.5;
+controls.autoRotate = true; controls.autoRotateSpeed = 0.25;
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(5, 3, 5); scene.add(sun);
+
+const loader = new THREE.TextureLoader();
+loader.load(IMG + 'night-sky.png', t => { t.colorSpace = THREE.SRGBColorSpace; scene.background = t; });
+const earthMat = new THREE.MeshPhongMaterial({ shininess: 8 });
+loader.load(IMG + 'earth-blue-marble.jpg', t => { t.colorSpace = THREE.SRGBColorSpace; earthMat.map = t; earthMat.needsUpdate = true; });
+loader.load(IMG + 'earth-topology.png', t => { earthMat.bumpMap = t; earthMat.bumpScale = 0.015; earthMat.needsUpdate = true; });
+const earth = new THREE.Mesh(new THREE.SphereGeometry(1, 128, 128), earthMat);
+scene.add(earth);
+
+// Atmosphere glow (fresnel rim).
+const glow = new THREE.Mesh(new THREE.SphereGeometry(1.12, 64, 64), new THREE.ShaderMaterial({
+  transparent: true, side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending,
+  vertexShader: `varying vec3 vN; void main(){ vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `varying vec3 vN; void main(){ float i = pow(0.68 - dot(vN, vec3(0,0,1.0)), 3.0); gl_FragColor = vec4(0.35,0.6,1.0,1.0) * i; }`
+}));
+scene.add(glow);
+
+// Equirectangular overlay layers: persistence heat and wind particle trails.
+function overlay(radius, w, h) {
+  const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+  const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace;
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 128, 128),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+  scene.add(mesh);
+  return { canvas, ctx: canvas.getContext('2d'), tex, mesh };
+}
+const heat = overlay(1.002, 1440, 720);
+const wind = overlay(1.005, 2048, 1024);
+
+const toXYZ = (lat, lon, r = 1.01) => {
+  const la = lat * Math.PI / 180, lo = lon * Math.PI / 180;
+  return new THREE.Vector3(r * Math.cos(la) * Math.cos(lo), r * Math.sin(la), -r * Math.cos(la) * Math.sin(lo));
+};
+
+// Point sprites, one material per kind (shape carries the kind as well as colour).
+function sprite(kind) {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.translate(32, 32); g.strokeStyle = g.fillStyle = COLORS[kind]; g.lineWidth = 9;
+  const open = kind.startsWith('repelling') || kind === 'center';
+  if (kind === 'saddle') { g.lineCap = 'round'; g.beginPath(); g.moveTo(-20,-20); g.lineTo(20,20); g.moveTo(20,-20); g.lineTo(-20,20); g.stroke(); }
+  else if (kind.endsWith('focus')) { g.rotate(Math.PI / 4); open ? g.strokeRect(-17,-17,34,34) : g.fillRect(-19,-19,38,38); }
+  else { g.beginPath(); g.arc(0, 0, open ? 20 : 22, 0, Math.PI * 2); open ? g.stroke() : g.fill(); }
+  const t = new THREE.CanvasTexture(c);
+  return new THREE.PointsMaterial({ size: 0.065, map: t, transparent: true, depthWrite: false, sizeAttenuation: true });
+}
+const kinds = Object.keys(COLORS);
+const pointLayers = {};
+for (const k of kinds) {
+  const pts = new THREE.Points(new THREE.BufferGeometry(), sprite(k));
+  pts.userData.kind = k; pointLayers[k] = pts; scene.add(pts);
+}
+
+// ------------------------------------------------------------------ state
+let META, FRAME = null, playing = false, timer = null, particles = [];
+const state = { i: 0 };
+
+async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(url + ' ' + r.status); return r.json(); }
+
+// ------------------------------------------------------------------ wind particles
+function sampleUV(lat, lon) {
+  const g = FRAME.grid, nlat = g.lat.length, nlon = g.lon.length;
+  const dlat = g.lat[1] - g.lat[0], dlon = g.lon[1] - g.lon[0];
+  let fi = (lat - g.lat[0]) / dlat, fj = (((lon - g.lon[0]) % 360) + 360) % 360 / dlon;
+  fi = Math.max(0, Math.min(nlat - 1.001, fi));
+  const i0 = Math.floor(fi), j0 = Math.floor(fj) % nlon, j1 = (j0 + 1) % nlon, a = fi - i0, b = fj - Math.floor(fj);
+  const at = (arr, i, j) => arr[i * nlon + j];
+  const bil = arr => (1-a)*(1-b)*at(arr,i0,j0) + (1-a)*b*at(arr,i0,j1) + a*(1-b)*at(arr,i0+1,j0) + a*b*at(arr,i0+1,j1);
+  return [bil(FRAME.u), bil(FRAME.v)];
+}
+function seed(p) { p.lat = Math.asin(Math.random() * 2 - 1) * 180 / Math.PI; p.lon = Math.random() * 360 - 180; p.age = Math.random() * 60 | 0; }
+for (let n = 0; n < 9000; n++) { const p = {}; seed(p); particles.push(p); }
+
+function stepParticles() {
+  const { ctx, canvas } = wind, W = canvas.width, H = canvas.height;
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillStyle = 'rgba(0,0,0,0.05)'; ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'source-over';
+  if (!FRAME || !$('lyrWind').checked) { wind.tex.needsUpdate = true; return; }
+  ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(245,248,255,0.9)';
+  ctx.beginPath();
+  const k = 0.012; // degrees per (m/s) per frame
+  for (const p of particles) {
+    const [u, v] = sampleUV(p.lat, p.lon);
+    const x0 = (p.lon + 180) / 360 * W, y0 = (90 - p.lat) / 180 * H;
+    p.lat += v * k; p.lon += u * k / Math.max(Math.cos(p.lat * Math.PI / 180), 0.15);
+    if (p.lon > 180) p.lon -= 360; if (p.lon < -180) p.lon += 360;
+    if (++p.age > 90 || Math.abs(p.lat) > 89) { seed(p); continue; }
+    const x1 = (p.lon + 180) / 360 * W, y1 = (90 - p.lat) / 180 * H;
+    if (Math.abs(x1 - x0) < W / 4) { ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); }
+  }
+  ctx.stroke();
+  wind.tex.needsUpdate = true;
+}
+
+// ------------------------------------------------------------------ persistence heat
+async function drawHeat() {
+  const { ctx, canvas } = heat, W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  if (!$('lyrHeat').checked) { heat.tex.needsUpdate = true; return; }
+  const d = await getJSON(`/api/persistence?kind=${$('heatKind').value}&season=${$('heatSeason').value}`);
+  const nlat = d.lat.length, nlon = d.lon.length, cw = W / nlon, ch = H / nlat;
+  const vmax = d.max || 1;
+  for (let i = 0; i < nlat; i++) for (let j = 0; j < nlon; j++) {
+    const f = d.grid[i * nlon + j] / vmax;
+    if (f < 0.15) continue;
+    // Single-hue sequential: one warm hue, magnitude in opacity.
+    ctx.fillStyle = `rgba(245,197,66,${Math.min(0.55, (f - 0.15) / 0.85 * 0.55).toFixed(3)})`;
+    const x = (d.lon[j] + 180) / 360 * W - cw / 2, y = (90 - d.lat[i]) / 180 * H - ch / 2;
+    ctx.fillRect(x, y, cw + 0.5, ch + 0.5);
+  }
+  heat.tex.needsUpdate = true;
+  $('hotspots').innerHTML = d.hotspots.slice(0, 8).map(h =>
+    `<div class="hot" data-lat="${h.lat}" data-lon="${h.lon}">${fmtLat(h.lat)}, ${fmtLon(h.lon)} — ${(h.freq * 100).toFixed(1)}% of steps</div>`).join('');
+  document.querySelectorAll('.hot').forEach(el => el.onclick = () => { flyTo(+el.dataset.lat, +el.dataset.lon); selectCell(+el.dataset.lat, +el.dataset.lon); });
+  $('heatNote').textContent = `${d.note} ${d.steps.toLocaleString()} steps. Brightest = ${(vmax * 100).toFixed(1)}%.`;
+}
+const fmtLat = v => `${Math.abs(v).toFixed(1)}°${v >= 0 ? 'N' : 'S'}`;
+const fmtLon = v => `${Math.abs(v).toFixed(1)}°${v >= 0 ? 'E' : 'W'}`;
+
+// ------------------------------------------------------------------ frame
+async function loadFrame(i) {
+  FRAME = await getJSON(`/api/frame?i=${i}`);
+  state.i = i; $('slider').value = i;
+  $('time').textContent = new Date(FRAME.time).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+  const show = new Set([...document.querySelectorAll('.kind:checked')].map(e => e.value));
+  const counts = {};
+  for (const k of kinds) {
+    const sel = FRAME.points.filter(p => p.kind === k);
+    counts[k] = sel.length;
+    const pos = new Float32Array(sel.length * 3);
+    sel.forEach((p, n) => { const v = toXYZ(p.lat, p.lon, 1.012); pos.set([v.x, v.y, v.z], n * 3); });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    pointLayers[k].geometry.dispose(); pointLayers[k].geometry = g; pointLayers[k].userData.rows = sel;
+    pointLayers[k].visible = $('lyrPts').checked && show.has(k);
+  }
+  const c = FRAME.closure;
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  $('stepStats').innerHTML = [
+    ['Stagnation points', total.toLocaleString()],
+    ...kinds.filter(k => counts[k]).map(k => [LABEL(k), counts[k]]),
+    ['Polar caps (N / S)', `${c.cap_north >= 0 ? '+' : ''}${c.cap_north} / ${c.cap_south >= 0 ? '+' : ''}${c.cap_south}`],
+    ['Σ index (winding)', `<span class="badge ${c.winding_sum === 2 ? 'ok' : 'warn'}">${c.winding_sum}</span>`],
+    ['Edge error (flipped edges)', `${c.edge_error} (${c.edge_flips})`],
+  ].map(([a, b]) => `<div class="stat"><span>${a}</span><b>${b}</b></div>`).join('');
+}
+
+// ------------------------------------------------------------------ closure panel
+async function drawClosure() {
+  const d = await getJSON('/api/closure');
+  const m = META.closure;
+  $('closureStats').innerHTML = [
+    ['Steps analysed', m.steps.toLocaleString()],
+    ['Mean Σ index', m.mean_winding_sum.toFixed(3)],
+    ['Steps with Σ = 2 exactly', (m.share_exactly_2 * 100).toFixed(1) + '%'],
+    ['Σ = 2 + edge error, every step', `<span class="badge ${m.identity_holds ? 'ok' : 'warn'}">${m.identity_holds ? 'holds' : 'broken'}</span>`],
+    ['Mean points per step', m.mean_points_per_step.toLocaleString()],
+  ].map(([a, b]) => `<div class="stat"><span>${a}</span><b>${b}</b></div>`).join('');
+  Plotly.newPlot('closureChart', [
+    { x: d.time, y: d.winding_sum, type: 'scattergl', mode: 'lines', line: { color: '#3987e5', width: 1 }, name: 'Σ index',
+      hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Σ index %{y}<extra></extra>' },
+  ], {
+    margin: { l: 28, r: 8, t: 6, b: 22 }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', showlegend: false,
+    font: { family: 'Inter, Arial', size: 10, color: '#c3c2b7' },
+    xaxis: { gridcolor: 'rgba(255,255,255,0.06)' }, yaxis: { gridcolor: 'rgba(255,255,255,0.06)', zeroline: false },
+    shapes: [{ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 2, y1: 2, line: { color: '#f5c542', width: 1, dash: 'dot' } }],
+  }, { displayModeBar: false, responsive: true });
+}
+
+// ------------------------------------------------------------------ location
+async function selectCell(lat, lon) {
+  $('cell').innerHTML = `Loading ${fmtLat(lat)}, ${fmtLon(lon)}…`;
+  const d = await getJSON(`/api/cell?lat=${lat.toFixed(2)}&lon=${lon.toFixed(2)}`);
+  $('cell').innerHTML = `<div class="stat"><span>Location</span><b>${fmtLat(lat)}, ${fmtLon(lon)}</b></div>` +
+    [['Saddle within 250 km', d.mean.saddle], ['Node within 250 km', d.mean.node], ['Focus within 250 km', d.mean.focus],
+     ['Attracting (convergent)', d.mean.attracting]].map(([a, b]) =>
+      `<div class="stat"><span>${a}</span><b>${(b * 100).toFixed(1)}% of steps</b></div>`).join('') +
+    `<div class="stat"><span>Longest-lived point nearby</span><b>${d.longest_track_h} h</b></div>`;
+  $('cellChart').style.display = 'block';
+  const x = d.monthly.map(r => r.month);
+  Plotly.newPlot('cellChart', ['saddle', 'node', 'focus'].map(f => ({
+    x, y: d.monthly.map(r => r[f] * 100), type: 'scatter', mode: 'lines+markers', name: f,
+    line: { color: { saddle: '#d95926', node: '#3987e5', focus: '#199e70' }[f], width: 2 }, marker: { size: 5 },
+    hovertemplate: `%{x} · ${f}: %{y:.1f}%<extra></extra>` })), {
+    margin: { l: 30, r: 8, t: 6, b: 24 }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter, Arial', size: 10, color: '#c3c2b7' }, legend: { orientation: 'h', y: 1.2 },
+    yaxis: { title: '% of steps', gridcolor: 'rgba(255,255,255,0.06)' }, xaxis: { gridcolor: 'rgba(255,255,255,0.06)' },
+  }, { displayModeBar: false, responsive: true });
+}
+
+function flyTo(lat, lon) {
+  controls.autoRotate = false;
+  const target = toXYZ(lat, lon, camera.position.length());
+  const start = camera.position.clone(); let t = 0;
+  const anim = () => { t = Math.min(1, t + 0.04); camera.position.lerpVectors(start, target, t).setLength(start.length()); if (t < 1) requestAnimationFrame(anim); };
+  anim();
+}
+
+// ------------------------------------------------------------------ picking
+const ray = new THREE.Raycaster(); ray.params.Points.threshold = 0.015;
+const mouse = new THREE.Vector2();
+function pick(ev) {
+  mouse.set(ev.clientX / innerWidth * 2 - 1, -(ev.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const hits = ray.intersectObjects(Object.values(pointLayers).filter(p => p.visible));
+  return hits[0];
+}
+renderer.domElement.addEventListener('pointermove', ev => {
+  const h = pick(ev), tip = $('tip');
+  if (!h) { tip.style.display = 'none'; return; }
+  const r = h.object.userData.rows[h.index];
+  tip.style.display = 'block'; tip.style.left = ev.clientX + 14 + 'px'; tip.style.top = ev.clientY + 14 + 'px';
+  tip.innerHTML = `<b>${LABEL(r.kind)}</b><br>${fmtLat(r.lat)}, ${fmtLon(r.lon)}<br>strength ${(r.strength * 1e5).toFixed(2)}×10⁻⁵ s⁻¹` +
+    `<br>divergence ${(r.divergence * 1e5).toFixed(2)}×10⁻⁵ s⁻¹<br>persisting ${r.age_h} h (track ${r.track})`;
+});
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', ev => { downAt = [ev.clientX, ev.clientY]; controls.autoRotate = false; });
+renderer.domElement.addEventListener('pointerup', ev => {
+  if (!downAt || Math.hypot(ev.clientX - downAt[0], ev.clientY - downAt[1]) > 4) return;
+  mouse.set(ev.clientX / innerWidth * 2 - 1, -(ev.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const h = ray.intersectObject(earth)[0];
+  if (!h) return;
+  const p = h.point.clone().normalize();
+  selectCell(Math.asin(p.y) * 180 / Math.PI, Math.atan2(-p.z, p.x) * 180 / Math.PI);
+});
+
+// ------------------------------------------------------------------ controls
+$('slider').oninput = e => loadFrame(+e.target.value);
+$('play').onclick = () => {
+  playing = !playing; $('play').textContent = playing ? '❚❚ Pause' : '▶ Play';
+  clearInterval(timer);
+  if (playing) timer = setInterval(() => loadFrame((state.i + 1) % META.times.length), +$('speed').value);
+};
+$('speed').onchange = () => { if (playing) { $('play').click(); $('play').click(); } };
+['heatKind', 'heatSeason', 'lyrHeat'].forEach(id => $(id).onchange = drawHeat);
+['lyrPts', ...[...document.querySelectorAll('.kind')].map(e => e)].forEach(el => {
+  (typeof el === 'string' ? $(el) : el).onchange = () => loadFrame(state.i);
+});
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+// ------------------------------------------------------------------ go
+function loop() { controls.update(); stepParticles(); renderer.render(scene, camera); requestAnimationFrame(loop); }
+(async () => {
+  try {
+    META = await getJSON('/api/meta');
+    $('slider').max = META.times.length - 1;
+    $('source').innerHTML = `${META.source.name}, ${META.resolution} grid, ${META.months[0]} to ${META.months.at(-1)} ` +
+      `(${META.months.length} months). ${META.source.attribution}. Licence: ${META.source.license}.`;
+    await loadFrame(0);
+    await Promise.all([drawHeat(), drawClosure()]);
+    $('loading').remove();
+    loop();
+  } catch (e) { $('loading').textContent = 'Could not load: ' + e.message; }
+})();
+</script>
+</body>
+</html>
