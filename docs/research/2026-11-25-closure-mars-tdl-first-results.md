@@ -67,6 +67,14 @@ ablation.** This is one epoch on three months; the full run uses 2019-2024. If t
 then, the honest conclusion is that the topology of the wind cochain is not adding information beyond local wind
 speed and the current stagnation pattern for this target.
 
+## Update: the full 2010-2024 record at 1 degree
+
+**Tested** (ERA5 via ARCO-ERA5, every 6 hours, 180 months, 21,916 steps; computed from each month's
+`closure.parquet`). The index sum is exactly 2 in **88.0%** of steps (mean 1.872), and `sum = 2 + edge_error` holds on
+**every** step. The share is stable year to year (86.4% in 2012 to 89.2% in 2017), with a mean of 1,369 stagnation
+points per step (1,348 to 1,396 by year). On this record, departures from closure at 1 degree are a steady
+resolution effect, not a drifting one.
+
 ## Not yet done
 
 - CH4 association (composites, block bootstrap, FDR, 0-3 day lags): waiting on access to CAMS EAC4 (ADS terms must be
