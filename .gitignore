@@ -1,0 +1,13 @@
+# Data (large NetCDF files are not committed)
+data/
+*.nc
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# macOS
+.DS_Store
