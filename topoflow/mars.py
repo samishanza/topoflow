@@ -126,7 +126,8 @@ def process_file(path: Path) -> dict:
     disp.to_netcdf(out / "display.nc", encoding={k: {"zlib": True} for k in ("u10", "v10", "blh")})
     summary = {
         "month": stem, "processed_at": now_iso(), "steps": len(sols),
-        "mars_year": int(my[0]), "ls_range": [round(float(ls.min()), 1), round(float(ls.max()), 1)],
+        # First and last Ls, not min/max: a file that crosses into the next Mars year wraps through 360.
+        "mars_year": int(my[0]), "ls_range": [round(float(ls[0]), 1), round(float(ls[-1]), 1)],
         "source": {"id": "openmars", "name": "OpenMARS MY28-35 standard database (lowest sigma level)",
                    "license": LICENSE, "attribution": ATTRIBUTION, "file": path.name, "resolution": "5deg"},
         "gate": "admitted", "points": len(rows),
