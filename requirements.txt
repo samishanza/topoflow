@@ -1,5 +1,12 @@
-dash
-plotly
+# Same as pyproject.toml; `pip install -e ".[dev]"` is preferred.
+numpy
 xarray
 netCDF4
-numpy
+pandas
+requests
+shapely>=2
+pydantic>=2
+dash
+plotly
+pytest
+# Optional: cdsapi (Copernicus CDS), earthengine-api (TROPOMI), anthropic (review agent)

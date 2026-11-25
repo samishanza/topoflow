@@ -1,0 +1,12 @@
+# Compound Engineering: repo config (team defaults). Optional override: .compound-engineering/config.local.yaml.
+# Full key reference: the plugin's config.example.yaml, or run /ce-setup.
+
+# Artifacts (plans, solutions, explainers) live under docs/, as CLAUDE.md describes.
+# docs_root: docs
+
+# Plans and brainstorms as markdown so they diff cleanly in PRs.
+plan_output: md
+brainstorm_output: md
+
+# Keep PR descriptions short; this repo's concepts are documented in docs/project/.
+pr_teaching_section: false

@@ -1,13 +1,26 @@
-# Data (large NetCDF files are not committed)
+# Runs, caches, bulk downloads, licence-restricted recordings
 data/
 *.nc
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.cdsapirc
+
+# Worktrees
+.worktrees/
+.claude/worktrees/
+.claude/settings.local.json
+.compound-engineering/config.local.yaml
 
 # Python
 __pycache__/
 *.pyc
+*.egg-info/
+.pytest_cache/
 .venv/
 venv/
-.env
 
 # macOS
 .DS_Store

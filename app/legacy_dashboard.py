@@ -1,4 +1,5 @@
-# topoflow_dashboard.py
+# legacy_dashboard.py: the original single-file TopoFlow dashboard, kept for reference.
+# The current one is app/dashboard.py, which reads a compiled run instead of raw files.
 
 import dash
 from dash import dcc, html

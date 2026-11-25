@@ -1,0 +1,33 @@
+[project]
+name = "topoflow"
+version = "0.2.0"
+description = "Wind-field topology and methane: a multi-source collection pipeline with deterministic gates, and a Dash dashboard."
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "xarray",
+  "netCDF4",
+  "pandas",
+  "requests",
+  "shapely>=2",
+  "pydantic>=2",
+  "dash",
+  "plotly",
+]
+
+[project.optional-dependencies]
+# Keyed sources. Each is skipped with a stated reason when its credentials are absent.
+cds = ["cdsapi"]
+gee = ["earthengine-api"]
+review = ["anthropic"]
+dev = ["pytest"]
+
+[project.scripts]
+topoflow = "topoflow.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["topoflow*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q -p no:dash"
