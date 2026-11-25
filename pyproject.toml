@@ -27,8 +27,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Topological deep learning (topoflow.tdl). filelock comes in with torch; its floor carries the advisory fixes.
-tdl = ["torch", "filelock>=4.2.1"]
+# Topological deep learning (topoflow.tdl). filelock comes in with torch; the patched release needs Python 3.11+,
+# so on 3.10 the floor cannot apply (residual advisory: lock-file races, low impact here).
+tdl = ["torch", "filelock>=4.2.1; python_version >= '3.11'"]
 # Keyed sources. Each is skipped with a stated reason when its credentials are absent.
 cds = ["cdsapi"]
 gee = ["earthengine-api"]
