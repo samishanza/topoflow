@@ -3,6 +3,7 @@ name = "topoflow"
 version = "0.3.0"
 description = "Atmospheric stagnation points on whole planets: Poincaré-Hopf closure, multi-reanalysis climatology, methane statistics, topological deep learning, and a 3-D globe."
 requires-python = ">=3.10"
+license = { text = "All rights reserved. Source available for viewing only; see LICENSE." }
 # Floors include fixes for every advisory pip-audit reported on 2026-11-25 (requests, urllib3, werkzeug, certifi,
 # pyarrow). Re-run `pip-audit` before each release.
 dependencies = [

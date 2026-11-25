@@ -109,6 +109,11 @@ This repo is private research; re-read those terms before making it public or us
 - Dependency floors in `pyproject.toml` include fixes for every advisory `pip-audit` reported on 2026-11-25. Run
   `pip-audit` before releasing. Report vulnerabilities through GitHub's private security advisories on this repo.
 
+## Licence
+
+Source available for viewing only. Copyright (c) 2026 Shanza Sami, all rights reserved: no permission is granted to
+use, copy, modify or distribute this code without written permission. See [LICENSE](LICENSE).
+
 ## Third-party data
 
 See [NOTICE.md](NOTICE.md) for the licence and attribution of every bundled file and every source fetched at run time.
